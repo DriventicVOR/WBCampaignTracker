@@ -392,7 +392,7 @@
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ VEDs 1.5 Software Update Campaign</span></div>
-  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.2.2</div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.2.3</div>
   <div class="spacer"></div>
   <div class="toolbar">
     <div class="drop-zone" id="dropZone">⬆ Drop updated fleet .xlsx here</div>
@@ -458,11 +458,10 @@
         </div>
       </div>
       <div class="form-row single">
-        <label class="checkbox-field" id="cb_dis_software_update" onclick="toggleCheck('dis_software_update')">
-          <input type="checkbox" id="f_dis_software_update">
+        <div class="checkbox-field" id="cb_dis_software_update" onclick="toggleCheck('dis_software_update')">
           <span class="toggle-label">DIS Software Update</span>
           <span class="toggle-state" id="ts_dis_software_update">N</span>
-        </label>
+        </div>
       </div>
 
       <div class="form-section-title">EVCC1</div>
@@ -472,11 +471,10 @@
           <input type="text" id="f_evcc1_serial_number" placeholder="Serial…">
         </div>
         <div class="field">
-          <label class="checkbox-field" id="cb_evcc1_hsout1" onclick="toggleCheck('evcc1_hsout1')" style="margin-top:18px;">
-            <input type="checkbox" id="f_evcc1_hsout1">
+          <div class="checkbox-field" id="cb_evcc1_hsout1" onclick="toggleCheck('evcc1_hsout1')" style="margin-top:18px;">
             <span class="toggle-label">EVCC1 HSOUT1</span>
             <span class="toggle-state" id="ts_evcc1_hsout1">N</span>
-          </label>
+          </div>
         </div>
       </div>
 
@@ -487,11 +485,10 @@
           <input type="text" id="f_evcc2_serial_number" placeholder="Serial…">
         </div>
         <div class="field">
-          <label class="checkbox-field" id="cb_evcc2_hsout1" onclick="toggleCheck('evcc2_hsout1')" style="margin-top:18px;">
-            <input type="checkbox" id="f_evcc2_hsout1">
+          <div class="checkbox-field" id="cb_evcc2_hsout1" onclick="toggleCheck('evcc2_hsout1')" style="margin-top:18px;">
             <span class="toggle-label">EVCC2 HSOUT1</span>
             <span class="toggle-state" id="ts_evcc2_hsout1">N</span>
-          </label>
+          </div>
         </div>
       </div>
 
