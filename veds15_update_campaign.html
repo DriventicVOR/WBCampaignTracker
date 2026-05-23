@@ -395,7 +395,7 @@
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ VEDs 1.5 Software Update Campaign</span></div>
-  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.1.2</div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.2.0</div>
   <div class="spacer"></div>
   <div class="toolbar">
     <div class="drop-zone" id="dropZone">⬆ Drop updated fleet .xlsx here</div>
@@ -415,6 +415,10 @@
   <label>Operator</label>
   <select id="operatorFilter" onchange="renderGrid()">
     <option value="">— All Operators —</option>
+  </select>
+  <label style="margin-left:8px;">Depot</label>
+  <select id="depotFilter" onchange="renderGrid()">
+    <option value="">— All Depots —</option>
   </select>
   <label style="margin-left:8px;">Status</label>
   <select id="statusFilter" onchange="renderGrid()">
@@ -586,6 +590,7 @@ async function init() {
     showToast('No campaign data found. Drop a fleet .xlsx to get started.', 'info');
   }
   populateOperators();
+  populateDepots();
   renderGrid();
   setupDrop();
 }
@@ -617,18 +622,33 @@ function populateOperators() {
   sel.value = current;
 }
 
+function populateDepots() {
+  const sel = document.getElementById('depotFilter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— All Depots —</option>';
+  const depots = [...new Set(vehicles.map(v => v.depot).filter(Boolean))].sort();
+  depots.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d; o.textContent = d;
+    sel.appendChild(o);
+  });
+  sel.value = current;
+}
+
 // ── GRID ──
 function renderGrid() {
   if (vehicles.length === 0) { showEmptyState(); return; }
 
-  const opFilter = document.getElementById('operatorFilter').value;
-  const stFilter = document.getElementById('statusFilter').value;
-  const search   = document.getElementById('searchInput').value.trim().toUpperCase();
+  const opFilter  = document.getElementById('operatorFilter').value;
+  const depFilter = document.getElementById('depotFilter').value;
+  const stFilter  = document.getElementById('statusFilter').value;
+  const search    = document.getElementById('searchInput').value.trim().toUpperCase();
 
   const filtered = vehicles.filter(v => {
-    if (opFilter && v.account_name !== opFilter) return false;
-    if (stFilter && v.update_status !== stFilter) return false;
-    if (search && !v.body_number.toUpperCase().includes(search)) return false;
+    if (opFilter  && v.account_name !== opFilter)  return false;
+    if (depFilter && v.depot !== depFilter)         return false;
+    if (stFilter  && v.update_status !== stFilter)  return false;
+    if (search    && !v.body_number.toUpperCase().includes(search)) return false;
     return true;
   });
 
@@ -921,6 +941,7 @@ async function handleXlsx(file) {
     }
 
     populateOperators();
+    populateDepots();
     renderGrid();
 
     // Upload to Supabase
