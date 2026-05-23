@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VEDs 1.5 — Software Update Campaign</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
 
@@ -867,13 +868,17 @@ function parseRow(row) {
 async function handleXlsx(file) {
   showToast('Parsing fleet file…', 'info');
   try {
-    if (!window.XLSX) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-    }
     const buffer = await file.arrayBuffer();
     const wb = window.XLSX.read(buffer, { type: 'array' });
-    const ws = wb.Sheets['CM Warranty'];
-    if (!ws) { showToast('Sheet "CM Warranty" not found', 'error'); return; }
+
+    // Find sheet — try exact match first, then case-insensitive
+    let wsName = wb.SheetNames.find(n => n === 'CM Warranty');
+    if (!wsName) wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'cm warranty');
+    if (!wsName) {
+      showToast('Sheet not found. Available sheets: ' + wb.SheetNames.join(', '), 'error');
+      return;
+    }
+    const ws = wb.Sheets[wsName];
 
     const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
@@ -929,14 +934,6 @@ async function handleXlsx(file) {
     showToast('Parse error: ' + e.message, 'error');
     console.error(e);
   }
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = resolve; s.onerror = reject;
-    document.head.appendChild(s);
-  });
 }
 
 // ── TOAST ──
