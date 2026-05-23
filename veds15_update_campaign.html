@@ -395,7 +395,7 @@
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ VEDs 1.5 Software Update Campaign</span></div>
-  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.1.1</div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.1.2</div>
   <div class="spacer"></div>
   <div class="toolbar">
     <div class="drop-zone" id="dropZone">⬆ Drop updated fleet .xlsx here</div>
@@ -832,10 +832,15 @@ const MONTH_MAP = {
 };
 
 function parseRow(row) {
-  const prodStatus = row[0] ? String(row[0]).trim() : '';
-  const shipStatus = row[1] ? String(row[1]).trim() : '';
-  const filter     = 'delivered to customer';
-  if (prodStatus.toLowerCase() !== filter && shipStatus.toLowerCase() !== filter) return null;
+  const prodStatus   = row[0]  ? String(row[0]).trim()  : '';
+  const shipStatus   = row[1]  ? String(row[1]).trim()  : '';
+  const drivelineSys = row[25] ? String(row[25]).trim() : '';
+
+  const deliveryFilter  = 'delivered to customer';
+  const drivelineFilter = 'veds 1.5';
+
+  if (prodStatus.toLowerCase() !== deliveryFilter && shipStatus.toLowerCase() !== deliveryFilter) return null;
+  if (drivelineSys.toLowerCase() !== drivelineFilter) return null;
 
   const bodyNum = row[6] ? String(row[6]).trim() : null;
   if (!bodyNum) return null;
