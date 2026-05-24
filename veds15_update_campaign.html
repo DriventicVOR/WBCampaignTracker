@@ -109,6 +109,11 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 /* Standalone fields area */
 .standalone-fields{display:flex;flex-direction:column;gap:5px;}
 
+/* Drag state */
+.field-row.dragging,.group-block.dragging{opacity:.4;}
+.drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:2px 0;pointer-events:none;}
+.group-fields.drag-over-empty{outline:2px dashed var(--accent);outline-offset:2px;border-radius:4px;min-height:32px;}
+
 /* Builder toolbar */
 .builder-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 
@@ -189,7 +194,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.1.2</div>
+  <div class="version-badge">v2.1.3</div>
   <div class="spacer"></div>
 </header>
 
@@ -454,30 +459,35 @@ async function onCampaignChange() {
 }
 
 // ══ FIELD BUILDER (shared between new & edit) ══
-// Schema items are either:
+// Schema items:
 //   {kind:'field', id, label, type:'text'|'toggle'|'dropdown', options:[]}
-//   {kind:'group', id, title, fields:[{id,label,type,options}]}
+//   {kind:'group', id, title, fields:[...]}
+
+// ── Drag state ──
+let _drag = null; // { el, isField }
 
 function builderAddField(areaId, fieldData) {
   const f = fieldData || { id:`f_${Date.now()}`, label:'', type:'text', options:[] };
-  const row = makeFieldRow(f, areaId);
-  document.getElementById(areaId).appendChild(row);
+  const area = document.getElementById(areaId);
+  if (!area._dropSetup) { setupBuilderAreaDrop(areaId); area._dropSetup = true; }
+  area.appendChild(makeFieldRow(f));
 }
 
 function builderAddGroup(areaId, groupData) {
   const g = groupData || { id:`g_${Date.now()}`, title:'', fields:[] };
-  const block = makeGroupBlock(g, areaId);
-  document.getElementById(areaId).appendChild(block);
+  const area = document.getElementById(areaId);
+  if (!area._dropSetup) { setupBuilderAreaDrop(areaId); area._dropSetup = true; }
+  area.appendChild(makeGroupBlock(g));
 }
 
-function makeFieldRow(f, areaId) {
+function makeFieldRow(f) {
   const row = document.createElement('div');
   row.className = 'field-row';
   row.dataset.kind = 'field';
   row.dataset.fieldId = f.id;
   const optsHidden = f.type !== 'dropdown' ? 'display:none' : '';
   row.innerHTML = `
-    <span class="drag-handle" draggable="true">⠿</span>
+    <span class="drag-handle" title="Drag to reorder or move into/out of groups">⠿</span>
     <input type="text" class="field-label-input" placeholder="Field label" value="${esc(f.label)}">
     <select class="field-type-select" onchange="onTypeChange(this)">
       <option value="text"     ${f.type==='text'    ?'selected':''}>Text</option>
@@ -487,18 +497,18 @@ function makeFieldRow(f, areaId) {
     <input type="text" class="opts-input" placeholder="Opt1, Opt2…" value="${esc((f.options||[]).join(', '))}" style="${optsHidden}">
     <button class="remove-btn" onclick="this.closest('.field-row').remove()" title="Remove">✕</button>
   `;
-  setupDragRow(row, areaId);
+  setupFieldDrag(row);
   return row;
 }
 
-function makeGroupBlock(g, areaId) {
+function makeGroupBlock(g) {
   const block = document.createElement('div');
   block.className = 'group-block';
   block.dataset.kind = 'group';
   block.dataset.groupId = g.id;
   block.innerHTML = `
     <div class="group-block-header">
-      <span class="drag-handle" draggable="true">⠿</span>
+      <span class="drag-handle group-drag-handle" title="Drag to reorder group">⠿</span>
       <input type="text" class="group-title-input" placeholder="Group title…" value="${esc(g.title)}">
       <button class="remove-btn" onclick="this.closest('.group-block').remove()" title="Remove group">✕</button>
     </div>
@@ -506,40 +516,161 @@ function makeGroupBlock(g, areaId) {
     <button class="ghost group-add-btn" onclick="addFieldToGroup(this)">+ Add field to group</button>
   `;
   const fieldsEl = block.querySelector('.group-fields');
-  (g.fields||[]).forEach(f => fieldsEl.appendChild(makeFieldRow(f, null)));
-  setupDragRow(block, areaId);
+  (g.fields||[]).forEach(f => fieldsEl.appendChild(makeFieldRow(f)));
+  setupGroupDrag(block);
+  setupGroupFieldsDrop(fieldsEl);
   return block;
 }
 
 function addFieldToGroup(btn) {
   const fieldsEl = btn.closest('.group-block').querySelector('.group-fields');
-  fieldsEl.appendChild(makeFieldRow({ id:`f_${Date.now()}`, label:'', type:'text', options:[] }, null));
+  fieldsEl.appendChild(makeFieldRow({ id:`f_${Date.now()}`, label:'', type:'text', options:[] }));
 }
 
 function onTypeChange(sel) {
-  const row = sel.closest('.field-row');
-  const opts = row.querySelector('.opts-input');
-  opts.style.display = sel.value === 'dropdown' ? '' : 'none';
+  sel.closest('.field-row').querySelector('.opts-input').style.display = sel.value==='dropdown' ? '' : 'none';
 }
 
-// Drag-and-drop reordering within a builder area
-function setupDragRow(el, areaId) {
-  el.addEventListener('dragstart', e => { e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',''); el.classList.add('dragging'); window._dragEl=el; window._dragArea=areaId; });
-  el.addEventListener('dragend',   () => { el.classList.remove('dragging'); window._dragEl=null; });
-  el.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect='move'; });
-  el.addEventListener('drop', e => {
+// ── Field drag: can be dragged into/out of groups and reordered ──
+function setupFieldDrag(row) {
+  const handle = row.querySelector('.drag-handle');
+  handle.draggable = true;
+
+  handle.addEventListener('dragstart', e => {
+    _drag = { el: row, isField: true };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    setTimeout(() => row.classList.add('dragging'), 0);
+  });
+
+  handle.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    clearDropIndicators();
+    clearGroupHighlights();
+    _drag = null;
+  });
+
+  // Drop ON another field row — insert before/after based on mouse Y
+  row.addEventListener('dragover', e => {
+    if (!_drag || !_drag.isField || _drag.el === row) return;
     e.preventDefault(); e.stopPropagation();
-    const src = window._dragEl;
-    if (!src || src === el) return;
-    const area = src.closest('.builder-area') || src.closest('.group-fields');
-    const dest = el.closest('.builder-area') || el.closest('.group-fields');
-    if (area && dest && area === dest) {
-      const items = [...dest.children];
-      const si = items.indexOf(src), di = items.indexOf(el);
-      if (si < di) dest.insertBefore(src, el.nextSibling);
-      else dest.insertBefore(src, el);
+    const rect = row.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    const ind = makeIndicator();
+    if (after) row.after(ind); else row.before(ind);
+  });
+
+  row.addEventListener('drop', e => {
+    if (!_drag || !_drag.isField || _drag.el === row) return;
+    e.preventDefault(); e.stopPropagation();
+    const ind = document.querySelector('.drop-indicator');
+    const rect = row.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    if (after) row.after(_drag.el); else row.before(_drag.el);
+  });
+}
+
+// ── Group drag: reorder whole groups within the builder area ──
+function setupGroupDrag(block) {
+  const handle = block.querySelector('.group-drag-handle');
+  handle.draggable = true;
+
+  handle.addEventListener('dragstart', e => {
+    _drag = { el: block, isField: false };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    setTimeout(() => block.classList.add('dragging'), 0);
+  });
+
+  handle.addEventListener('dragend', () => {
+    block.classList.remove('dragging');
+    clearDropIndicators();
+    _drag = null;
+  });
+
+  block.addEventListener('dragover', e => {
+    if (!_drag || _drag.isField || _drag.el === block) return;
+    e.preventDefault(); e.stopPropagation();
+    const rect = block.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    const ind = makeIndicator();
+    if (after) block.after(ind); else block.before(ind);
+  });
+
+  block.addEventListener('drop', e => {
+    if (!_drag || _drag.isField || _drag.el === block) return;
+    e.preventDefault(); e.stopPropagation();
+    const rect = block.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    if (after) block.after(_drag.el); else block.before(_drag.el);
+  });
+}
+
+// ── Builder area top-level drop zone (fields dragged out of groups land here) ──
+function setupBuilderAreaDrop(areaId) {
+  const area = document.getElementById(areaId);
+  area.addEventListener('dragover', e => {
+    if (!_drag || !_drag.isField) return;
+    // Only handle if directly over the area (not a child)
+    if (e.target !== area) return;
+    e.preventDefault();
+    clearDropIndicators();
+    clearGroupHighlights();
+    const ind = makeIndicator();
+    area.appendChild(ind);
+  });
+  area.addEventListener('drop', e => {
+    if (!_drag || !_drag.isField) return;
+    if (e.target !== area) return;
+    e.preventDefault();
+    clearDropIndicators();
+    area.appendChild(_drag.el);
+  });
+}
+
+// ── Group fields drop zone (fields dragged into groups land here) ──
+function setupGroupFieldsDrop(fieldsEl) {
+  fieldsEl.addEventListener('dragover', e => {
+    if (!_drag || !_drag.isField) return;
+    e.preventDefault(); e.stopPropagation();
+    // If hovering over empty space in the group (not a field row), show highlight
+    if (e.target === fieldsEl || e.target.closest('.group-fields') === fieldsEl) {
+      if (!e.target.closest('.field-row')) {
+        clearGroupHighlights();
+        fieldsEl.classList.add('drag-over-empty');
+      }
     }
   });
+  fieldsEl.addEventListener('dragleave', e => {
+    if (!fieldsEl.contains(e.relatedTarget)) {
+      fieldsEl.classList.remove('drag-over-empty');
+    }
+  });
+  fieldsEl.addEventListener('drop', e => {
+    if (!_drag || !_drag.isField) return;
+    // Only catch drops on the empty area of the group, not on a field-row
+    if (e.target.closest('.field-row')) return;
+    e.preventDefault(); e.stopPropagation();
+    clearDropIndicators();
+    clearGroupHighlights();
+    fieldsEl.appendChild(_drag.el);
+  });
+}
+
+function makeIndicator() {
+  const d = document.createElement('div');
+  d.className = 'drop-indicator';
+  return d;
+}
+function clearDropIndicators() {
+  document.querySelectorAll('.drop-indicator').forEach(d => d.remove());
+}
+function clearGroupHighlights() {
+  document.querySelectorAll('.group-fields.drag-over-empty').forEach(el => el.classList.remove('drag-over-empty'));
 }
 
 function readBuilderSchema(areaId) {
@@ -566,6 +697,7 @@ function readFieldRow(row) {
 function populateBuilder(areaId, schema) {
   const area = document.getElementById(areaId);
   area.innerHTML = '';
+  setupBuilderAreaDrop(areaId);
   (schema||[]).forEach(item => {
     if (item.kind === 'group') builderAddGroup(areaId, item);
     else builderAddField(areaId, item);
