@@ -3,440 +3,411 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VEDs 1.5 — Software Update Campaign</title>
+<title>WrightBus Campaign Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
 
-  :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --surface2:  #1c2128;
-    --border:    #30363d;
-    --accent:    #58a6ff;
-    --accent2:   #1f6feb;
-    --text:      #e6edf3;
-    --muted:     #7d8590;
-    --pending:   #f85149;
-    --progress:  #d29922;
-    --complete:  #3fb950;
-    --pending-bg:  rgba(248,81,73,0.15);
-    --progress-bg: rgba(210,153,34,0.15);
-    --complete-bg: rgba(63,185,80,0.15);
-    --modal-bg:  rgba(0,0,0,0.75);
-  }
+:root {
+  --bg:          #0d1117;
+  --surface:     #161b22;
+  --surface2:    #1c2128;
+  --border:      #30363d;
+  --accent:      #58a6ff;
+  --accent2:     #1f6feb;
+  --text:        #e6edf3;
+  --muted:       #7d8590;
+  --pending:     #f85149;
+  --progress:    #d29922;
+  --complete:    #3fb950;
+  --pending-bg:  rgba(248,81,73,0.15);
+  --progress-bg: rgba(210,153,34,0.15);
+  --complete-bg: rgba(63,185,80,0.15);
+  --modal-bg:    rgba(0,0,0,0.75);
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
-    min-height: 100vh;
-  }
+/* ── HEADER ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.logo { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: 1px; white-space: nowrap; }
+.logo span { color: var(--muted); font-weight: 400; }
+.version-badge { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
+.spacer { flex: 1; }
 
-  header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  header .logo {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--accent);
-    letter-spacing: 1px;
-    white-space: nowrap;
-  }
-  header .logo span { color: var(--muted); font-weight: 400; }
-  header .spacer { flex: 1; }
+/* ── TABS ── */
+.tab-bar {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+.tab {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
+/* ── COMMON CONTROLS ── */
+select, button, input[type="text"], textarea {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+}
+button, select {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+button:hover, select:hover { border-color: var(--accent); background: var(--surface); }
+select:focus { outline: none; border-color: var(--accent); }
+button.primary { background: var(--accent2); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover { background: var(--accent); }
+button.danger { background: rgba(248,81,73,0.15); border-color: rgba(248,81,73,0.4); color: var(--pending); }
+button.danger:hover { background: rgba(248,81,73,0.25); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  select, button, label.btn {
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    padding: 7px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-  }
-  select:hover, button:hover, label.btn:hover {
-    border-color: var(--accent);
-    background: var(--surface);
-  }
-  select:focus { outline: none; border-color: var(--accent); }
+input[type="text"], textarea {
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
 
-  button.primary {
-    background: var(--accent2);
-    border-color: var(--accent);
-    color: #fff;
-    font-weight: 500;
-  }
-  button.primary:hover { background: var(--accent); }
-  button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* ── TRACKER TAB ── */
+.tracker-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.campaign-select-wrap { display: flex; align-items: center; gap: 8px; }
+.campaign-select-wrap label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.campaign-select-wrap select { min-width: 260px; }
 
-  .stats-bar {
-    display: flex;
-    padding: 12px 24px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    flex-wrap: wrap;
-    gap: 20px;
-    align-items: center;
-  }
-  .stat { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-  .stat .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-  .stat .dot.pending  { background: var(--pending); }
-  .stat .dot.progress { background: var(--progress); }
-  .stat .dot.complete { background: var(--complete); }
-  .stat strong { color: var(--text); font-size: 15px; font-family: 'Share Tech Mono'; }
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.drop-zone.drag-over, .drop-zone:hover { border-color: var(--accent); color: var(--accent); }
+.drop-zone.disabled { opacity: 0.35; pointer-events: none; }
 
-  .filter-bar {
-    padding: 12px 24px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--border);
-  }
-  .filter-bar label { font-size: 13px; color: var(--muted); }
-  .filter-bar select { min-width: 200px; }
-  .search-input {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    padding: 7px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    width: 160px;
-    transition: border-color 0.2s;
-  }
-  .search-input:focus { outline: none; border-color: var(--accent); }
-  .search-input::placeholder { color: var(--muted); }
+.stats-bar {
+  display: flex;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+}
+.stat { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.stat .dot { width: 10px; height: 10px; border-radius: 50%; }
+.stat .dot.pending  { background: var(--pending); }
+.stat .dot.progress { background: var(--progress); }
+.stat .dot.complete { background: var(--complete); }
+.stat strong { color: var(--text); font-size: 15px; font-family: 'Share Tech Mono'; }
 
-  .drop-zone {
-    border: 2px dashed var(--border);
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-size: 13px;
-    color: var(--muted);
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .drop-zone.drag-over, .drop-zone:hover { border-color: var(--accent); color: var(--accent); }
+.filter-bar {
+  padding: 10px 24px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+.filter-bar label { font-size: 13px; color: var(--muted); }
+.filter-bar select { min-width: 180px; }
+.search-input { font-family: 'Share Tech Mono', monospace; font-size: 13px; width: 150px; }
 
-  /* Loading screen */
-  .loading-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 24px;
-    gap: 16px;
-    color: var(--muted);
-    font-size: 14px;
-  }
-  .spinner {
-    width: 36px; height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* ── GRID ── */
+.grid-wrap { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.grid-section { margin-bottom: 28px; }
+.grid-section h3 { font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.vehicle-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.vehicle-card {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+  min-width: 72px;
+  text-align: center;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+.vehicle-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
+.vehicle-card.status-Pending      { background: var(--pending-bg);  color: var(--pending);  border-color: rgba(248,81,73,0.3); }
+.vehicle-card.status-In-Progress  { background: var(--progress-bg); color: var(--progress); border-color: rgba(210,153,34,0.3); }
+.vehicle-card.status-Complete     { background: var(--complete-bg); color: var(--complete); border-color: rgba(63,185,80,0.3); }
 
-  /* Empty / prompt state */
-  .empty-state {
-    padding: 60px 24px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 2;
-  }
-  .empty-state strong { color: var(--text); display: block; font-size: 17px; margin-bottom: 8px; }
+/* ── CONFIG TAB ── */
+.config-wrap { padding: 28px 24px; max-width: 860px; }
+.config-section { margin-bottom: 36px; }
+.config-section h2 { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: 1px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 
-  .grid-wrap { padding: 20px 24px; }
-  .grid-section { margin-bottom: 28px; }
-  .grid-section h3 {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 6px;
-  }
-  .vehicle-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+/* New campaign form */
+.new-campaign-form { display: flex; flex-direction: column; gap: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+.form-row-inline { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.field-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+.field-group label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+.field-group input[type="text"] { width: 100%; }
 
-  .vehicle-card {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 8px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
-    min-width: 72px;
-    text-align: center;
-    letter-spacing: 0.5px;
-    user-select: none;
-  }
-  .vehicle-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
-  .vehicle-card:active { transform: translateY(0); }
-  .vehicle-card.status-Pending   { background: var(--pending-bg);  color: var(--pending);  border-color: rgba(248,81,73,0.3); }
-  .vehicle-card.status-In-Progress { background: var(--progress-bg); color: var(--progress); border-color: rgba(210,153,34,0.3); }
-  .vehicle-card.status-Complete  { background: var(--complete-bg); color: var(--complete); border-color: rgba(63,185,80,0.3); }
+/* Custom fields builder */
+.fields-builder { display: flex; flex-direction: column; gap: 8px; }
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 140px auto;
+  gap: 8px;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.field-row input[type="text"] { width: 100%; font-size: 13px; }
+.field-row select { font-size: 13px; }
+.field-row .drag-handle { color: var(--muted); cursor: grab; font-size: 14px; padding: 0 4px; user-select: none; }
+.field-row .remove-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; transition: color 0.15s; }
+.field-row .remove-btn:hover { color: var(--pending); }
+.add-field-btn { align-self: flex-start; margin-top: 4px; }
 
-  /* Modal */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: var(--modal-bg);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    backdrop-filter: blur(3px);
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    width: 100%;
-    max-width: 640px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
-    animation: slideUp 0.2s ease;
-  }
-  @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+/* Dropdown options editor */
+.dropdown-opts-input { width: 100%; font-size: 12px; color: var(--muted); font-style: italic; }
 
-  .modal-header {
-    padding: 18px 22px 14px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .modal-header h2 { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
-  .modal-header .body-meta { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; transition: color 0.15s; }
-  .modal-close:hover { color: var(--text); }
+/* Campaign list */
+.campaign-list { display: flex; flex-direction: column; gap: 8px; }
+.campaign-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: border-color 0.2s;
+}
+.campaign-item:hover { border-color: var(--accent); }
+.campaign-item .camp-name { font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 600; color: var(--text); flex: 1; }
+.campaign-item .camp-file { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); }
+.camp-status-badge {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.camp-status-badge:hover { opacity: 0.75; }
+.camp-status-badge.open   { background: var(--complete-bg); color: var(--complete); border: 1px solid rgba(63,185,80,0.4); }
+.camp-status-badge.closed { background: var(--pending-bg);  color: var(--pending);  border: 1px solid rgba(248,81,73,0.4); }
+.camp-fields-preview { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  .vehicle-info {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 16px;
-    padding: 14px 22px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface2);
-  }
-  .info-item .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
-  .info-item .val { color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 12px; margin-top: 1px; }
+/* ── MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: var(--modal-bg); z-index: 100;
+  align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(3px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  width: 100%; max-width: 660px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.modal-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.modal-header h2 { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+.modal-header .body-meta { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+.vehicle-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; padding: 14px 22px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.info-item .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
+.info-item .val { color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 12px; margin-top: 1px; }
+.form-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
+.form-section-title { font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 4px; }
+.eng-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 5px; }
+.eng-field input[type="text"], .eng-field select, .eng-field textarea { width: 100%; }
+.eng-field textarea { resize: vertical; min-height: 68px; }
 
-  .form-body { padding: 18px 22px; }
-  .form-section-title {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 13px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 10px;
-    margin-top: 16px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 5px;
-  }
-  .form-section-title:first-child { margin-top: 0; }
+/* Toggle field */
+.toggle-field {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; border-radius: 5px; cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s; user-select: none;
+  background: var(--pending-bg); border: 1px solid rgba(248,81,73,0.4);
+}
+.toggle-field:hover { opacity: 0.85; transform: translateY(-1px); }
+.toggle-field.on { background: var(--complete-bg); border-color: rgba(63,185,80,0.4); }
+.toggle-field .tl { font-size: 12px; font-weight: 500; color: var(--text); }
+.toggle-field .ts { font-family: 'Share Tech Mono', monospace; font-size: 13px; font-weight: 700; color: var(--pending); }
+.toggle-field.on .ts { color: var(--complete); }
 
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-  .form-row.single { grid-template-columns: 1fr; }
+.status-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: 'Share Tech Mono', monospace; letter-spacing: 0.5px; }
+.status-badge.Pending      { background: var(--pending-bg);  color: var(--pending); }
+.status-badge.In-Progress  { background: var(--progress-bg); color: var(--progress); }
+.status-badge.Complete     { background: var(--complete-bg); color: var(--complete); }
 
-  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 5px; }
-  .field input[type="text"] {
-    width: 100%;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    color: var(--text);
-    transition: border-color 0.2s;
-  }
-  .field input[type="text"]:focus { outline: none; border-color: var(--accent); }
-  .field textarea {
-    width: 100%;
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    padding: 8px 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    color: var(--text);
-    resize: vertical;
-    min-height: 72px;
-    transition: border-color 0.2s;
-  }
-  .field textarea:focus { outline: none; border-color: var(--accent); }
+.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.modal-footer .status-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 
-  .checkbox-field {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 9px 14px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s;
-    margin-top: 18px;
-    background: var(--pending-bg);
-    border: 1px solid rgba(248,81,73,0.4);
-    user-select: none;
-  }
-  .checkbox-field:hover { opacity: 0.85; transform: translateY(-1px); }
-  .checkbox-field:active { transform: translateY(0); }
-  .checkbox-field input[type="checkbox"] { display: none; }
-  .checkbox-field.checked {
-    background: var(--complete-bg);
-    border-color: rgba(63,185,80,0.4);
-  }
-  .toggle-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text);
-    letter-spacing: 0.3px;
-  }
-  .toggle-state {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--pending);
-  }
-  .checkbox-field.checked .toggle-state { color: var(--complete); }
+/* States */
+.loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 16px; color: var(--muted); font-size: 14px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { padding: 60px 24px; text-align: center; color: var(--muted); font-size: 14px; line-height: 2.2; }
+.empty-state strong { color: var(--text); display: block; font-size: 17px; margin-bottom: 8px; }
 
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 0.5px;
-  }
-  .status-badge.Pending      { background: var(--pending-bg);  color: var(--pending); }
-  .status-badge.In-Progress  { background: var(--progress-bg); color: var(--progress); }
-  .status-badge.Complete     { background: var(--complete-bg); color: var(--complete); }
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; font-size: 13px; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 999; transform: translateY(80px); opacity: 0; transition: transform 0.3s, opacity 0.3s; max-width: 340px; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left: 3px solid var(--complete); }
+.toast.error   { border-left: 3px solid var(--pending); }
+.toast.info    { border-left: 3px solid var(--accent); }
 
-  .modal-footer {
-    padding: 14px 22px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .modal-footer .status-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-
-  .toast {
-    position: fixed;
-    bottom: 24px; right: 24px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 18px;
-    font-size: 13px;
-    color: var(--text);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    z-index: 999;
-    transform: translateY(80px);
-    opacity: 0;
-    transition: transform 0.3s, opacity 0.3s;
-    max-width: 320px;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
-  .toast.success { border-left: 3px solid var(--complete); }
-  .toast.error   { border-left: 3px solid var(--pending); }
-  .toast.info    { border-left: 3px solid var(--accent); }
-
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">WRIGHTBUS <span>/ VEDs 1.5 Software Update Campaign</span></div>
-  <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;">v1.2.3</div>
+  <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
+  <div class="version-badge">v2.0.0</div>
   <div class="spacer"></div>
-  <div class="toolbar">
-    <div class="drop-zone" id="dropZone">⬆ Drop updated fleet .xlsx here</div>
-    <input type="file" id="fileInput" accept=".xlsx" style="display:none">
-    <button id="btnSync" class="primary" onclick="syncToSupabase()" disabled>☁ Sync to Supabase</button>
-  </div>
 </header>
 
-<div class="stats-bar">
-  <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">—</strong></div>
-  <div class="stat"><span class="dot progress"></span> In Progress <strong id="statProgress">—</strong></div>
-  <div class="stat"><span class="dot complete"></span> Complete <strong id="statComplete">—</strong></div>
-  <div class="stat" style="margin-left:auto;"><strong id="statTotal">—</strong> <span>vehicles shown</span></div>
+<div class="tab-bar">
+  <div class="tab active" id="tab-tracker" onclick="switchTab('tracker')">📋 Tracker</div>
+  <div class="tab" id="tab-config" onclick="switchTab('config')">⚙ Config</div>
 </div>
 
-<div class="filter-bar">
-  <label>Operator</label>
-  <select id="operatorFilter" onchange="renderGrid()">
-    <option value="">— All Operators —</option>
-  </select>
-  <label style="margin-left:8px;">Depot</label>
-  <select id="depotFilter" onchange="renderGrid()">
-    <option value="">— All Depots —</option>
-  </select>
-  <label style="margin-left:8px;">Status</label>
-  <select id="statusFilter" onchange="renderGrid()">
-    <option value="">— All Statuses —</option>
-    <option value="Pending">Pending</option>
-    <option value="In Progress">In Progress</option>
-    <option value="Complete">Complete</option>
-  </select>
-  <input class="search-input" id="searchInput" type="text" placeholder="Search body #..." oninput="renderGrid()">
-</div>
+<!-- ══ TRACKER TAB ══ -->
+<div id="pane-tracker">
+  <div class="tracker-toolbar">
+    <div class="campaign-select-wrap">
+      <label>Campaign</label>
+      <select id="campaignSelect" onchange="onCampaignChange()">
+        <option value="">— Select a campaign —</option>
+      </select>
+    </div>
+    <div class="drop-zone disabled" id="dropZone">⬆ Drop fleet .xlsx here</div>
+    <input type="file" id="fileInput" accept=".xlsx" style="display:none">
+    <div class="spacer" style="flex:1"></div>
+    <button id="btnSync" class="primary" onclick="syncCampaignData()" disabled>☁ Sync</button>
+  </div>
 
-<div id="mainContent">
-  <div class="loading-screen" id="loadingScreen">
-    <div class="spinner"></div>
-    <span>Connecting to Supabase…</span>
+  <div class="stats-bar">
+    <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">—</strong></div>
+    <div class="stat"><span class="dot progress"></span> In Progress <strong id="statProgress">—</strong></div>
+    <div class="stat"><span class="dot complete"></span> Complete <strong id="statComplete">—</strong></div>
+    <div class="stat" style="margin-left:auto;"><strong id="statTotal">—</strong> <span>vehicles shown</span></div>
+  </div>
+
+  <div class="filter-bar">
+    <label>Operator</label>
+    <select id="operatorFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    <label style="margin-left:8px;">Depot</label>
+    <select id="depotFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    <label style="margin-left:8px;">Status</label>
+    <select id="statusFilter" onchange="renderGrid()">
+      <option value="">— All —</option>
+      <option value="Pending">Pending</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Complete">Complete</option>
+    </select>
+    <input class="search-input" id="searchInput" type="text" placeholder="Search body #..." oninput="renderGrid()">
+  </div>
+
+  <div id="trackerContent">
+    <div class="empty-state">
+      <strong>No campaign selected</strong>
+      Select a campaign above, or create one in the Config tab.
+    </div>
   </div>
 </div>
 
-<!-- MODAL -->
+<!-- ══ CONFIG TAB ══ -->
+<div id="pane-config" style="display:none; overflow-y:auto; flex:1;">
+  <div class="config-wrap">
+
+    <!-- Create new campaign -->
+    <div class="config-section">
+      <h2>Create New Campaign</h2>
+      <div class="new-campaign-form">
+        <div class="form-row-inline">
+          <div class="field-group">
+            <label>Campaign Name</label>
+            <input type="text" id="newCampName" placeholder="e.g. VEDs1.5-SW-Update">
+          </div>
+          <button class="primary" onclick="createCampaign()" style="height:36px;white-space:nowrap;">+ Create Campaign</button>
+        </div>
+
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
+          <div class="fields-builder" id="fieldsBuilder"></div>
+          <button class="add-field-btn" onclick="addFieldRow()">+ Add Field</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Campaign list -->
+    <div class="config-section">
+      <h2>Campaigns</h2>
+      <div class="campaign-list" id="campaignList">
+        <div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ ENTRY MODAL ══ -->
 <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
-  <div class="modal" id="modal">
+  <div class="modal">
     <div class="modal-header">
       <div>
         <h2 id="modalTitle">—</h2>
@@ -445,65 +416,9 @@
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="vehicle-info" id="vehicleInfo"></div>
-    <div class="form-body">
-      <div class="form-section-title">DIS Unit</div>
-      <div class="form-row">
-        <div class="field">
-          <label>DIS Part Number</label>
-          <input type="text" id="f_dis_part_number" placeholder="e.g. WB-DIS-001">
-        </div>
-        <div class="field">
-          <label>DIS Serial Number</label>
-          <input type="text" id="f_dis_serial_number" placeholder="Serial…">
-        </div>
-      </div>
-      <div class="form-row single">
-        <div class="checkbox-field" id="cb_dis_software_update" onclick="toggleCheck('dis_software_update')">
-          <span class="toggle-label">DIS Software Update</span>
-          <span class="toggle-state" id="ts_dis_software_update">N</span>
-        </div>
-      </div>
-
-      <div class="form-section-title">EVCC1</div>
-      <div class="form-row">
-        <div class="field">
-          <label>EVCC1 Serial Number</label>
-          <input type="text" id="f_evcc1_serial_number" placeholder="Serial…">
-        </div>
-        <div class="field">
-          <div class="checkbox-field" id="cb_evcc1_hsout1" onclick="toggleCheck('evcc1_hsout1')" style="margin-top:18px;">
-            <span class="toggle-label">EVCC1 HSOUT1</span>
-            <span class="toggle-state" id="ts_evcc1_hsout1">N</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-section-title">EVCC2</div>
-      <div class="form-row">
-        <div class="field">
-          <label>EVCC2 Serial Number</label>
-          <input type="text" id="f_evcc2_serial_number" placeholder="Serial…">
-        </div>
-        <div class="field">
-          <div class="checkbox-field" id="cb_evcc2_hsout1" onclick="toggleCheck('evcc2_hsout1')" style="margin-top:18px;">
-            <span class="toggle-label">EVCC2 HSOUT1</span>
-            <span class="toggle-state" id="ts_evcc2_hsout1">N</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-section-title">Notes</div>
-      <div class="form-row single">
-        <div class="field">
-          <label>Free Text Notes</label>
-          <textarea id="f_notes" placeholder="Any additional notes…"></textarea>
-        </div>
-      </div>
-    </div>
+    <div class="form-body" id="engFormBody"></div>
     <div class="modal-footer">
-      <div class="status-wrap">
-        Status: <span class="status-badge" id="modalStatus">—</span>
-      </div>
+      <div class="status-wrap">Status: <span class="status-badge" id="modalStatus">—</span></div>
       <div style="display:flex;gap:8px;">
         <button onclick="closeModal()">Cancel</button>
         <button class="primary" onclick="saveEntry()">Save &amp; Sync</button>
@@ -515,152 +430,388 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── CONFIG ──
+// ══ CONFIG ══
 const SUPABASE_URL = 'https://plekykkdvevqblvdayhm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bpd9qIOrqVxtgcfejgFriQ_QVLYWjuP';
 const BUCKET       = 'campaign-data';
-const FILE_NAME    = 'CampaignStatus.json';
+const CAMP_LIST_FILE = 'CampaignList.json';
 
 const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
-const STORAGE_INFO = `${SUPABASE_URL}/storage/v1/object/info`;
-const FILE_URL     = `${STORAGE_BASE}/${BUCKET}/${FILE_NAME}`;
-const FILE_INFO_URL= `${STORAGE_INFO}/${BUCKET}/${FILE_NAME}`;
+const SB_HEADERS   = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
 
-const HEADERS = {
-  'apikey': SUPABASE_KEY,
-  'Authorization': `Bearer ${SUPABASE_KEY}`,
-};
+// ══ STATE ══
+let campaignList  = [];   // [{id, name, fileName, status:'open'|'closed', fields:[]}]
+let vehicles      = [];   // current campaign's vehicle records
+let activeCampaign = null;
+let currentIdx    = null;
+let toggleStates  = {};   // {fieldId: bool}
 
-// ── STATE ──
-let vehicles = [];
-let currentIdx = null;
-let checkStates = { dis_software_update: false, evcc1_hsout1: false, evcc2_hsout1: false };
-let dirty = false;
-
-// ── SUPABASE STORAGE ──
-async function fetchFromSupabase() {
-  try {
-    const res = await fetch(FILE_URL, { headers: HEADERS });
-    if (res.status === 404 || res.status === 400) return null;
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    console.error('fetchFromSupabase:', e);
-    return null;
-  }
+// ══ SUPABASE HELPERS ══
+async function sbGet(path) {
+  const res = await fetch(`${STORAGE_BASE}/${BUCKET}/${path}`, { headers: SB_HEADERS });
+  if (res.status === 404 || res.status === 400) return null;
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  return res.json();
 }
 
-async function uploadToSupabase(data, upsert = true) {
-  const body = JSON.stringify(data, null, 2);
-  const res = await fetch(FILE_URL, {
+async function sbPut(path, data) {
+  const res = await fetch(`${STORAGE_BASE}/${BUCKET}/${path}`, {
     method: 'POST',
-    headers: {
-      ...HEADERS,
-      'Content-Type': 'application/json',
-      'x-upsert': upsert ? 'true' : 'false',
-    },
-    body,
+    headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'x-upsert': 'true' },
+    body: JSON.stringify(data, null, 2),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Upload failed: ${err}`);
-  }
-  return true;
+  if (!res.ok) throw new Error(`PUT ${path} failed: ${await res.text()}`);
 }
 
-// ── INIT ──
+// ══ INIT ══
 async function init() {
-  showLoading('Connecting to Supabase…');
-  const existing = await fetchFromSupabase();
-  if (existing && Array.isArray(existing)) {
-    vehicles = existing;
-    showToast(`Loaded ${vehicles.length} vehicles from Supabase`, 'info');
-  } else {
-    vehicles = [];
-    showEmptyState();
-    showToast('No campaign data found. Drop a fleet .xlsx to get started.', 'info');
+  setTrackerLoading('Loading campaigns…');
+  try {
+    const data = await sbGet(CAMP_LIST_FILE);
+    campaignList = data && Array.isArray(data) ? data : [];
+  } catch(e) {
+    showToast('Could not load campaign list: ' + e.message, 'error');
+    campaignList = [];
   }
-  populateOperators();
-  populateDepots();
-  renderGrid();
+  refreshCampaignDropdown();
+  renderCampaignList();
   setupDrop();
+  setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
 }
 
-function showLoading(msg) {
-  document.getElementById('mainContent').innerHTML =
-    `<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`;
+// ══ TABS ══
+function switchTab(tab) {
+  document.getElementById('pane-tracker').style.display = tab === 'tracker' ? 'block' : 'none';
+  document.getElementById('pane-config').style.display  = tab === 'config'  ? 'block' : 'none';
+  document.getElementById('tab-tracker').classList.toggle('active', tab === 'tracker');
+  document.getElementById('tab-config').classList.toggle('active',  tab === 'config');
 }
 
-function showEmptyState() {
-  document.getElementById('mainContent').innerHTML =
-    `<div class="empty-state">
-      <strong>No campaign data loaded</strong>
-      Drop a fleet .xlsx file above to parse and initialise the campaign tracker.
-      <br>Only vehicles with "Delivered to customer" in Production or Shipping Status will be imported.
-    </div>`;
-}
-
-function populateOperators() {
-  const sel = document.getElementById('operatorFilter');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— All Operators —</option>';
-  const ops = [...new Set(vehicles.map(v => v.account_name).filter(Boolean))].sort();
-  ops.forEach(op => {
+// ══ CAMPAIGN DROPDOWN ══
+function refreshCampaignDropdown() {
+  const sel = document.getElementById('campaignSelect');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select a campaign —</option>';
+  campaignList.forEach(c => {
     const o = document.createElement('option');
-    o.value = op; o.textContent = op;
+    o.value = c.id;
+    o.textContent = `${c.name}  [${c.status.toUpperCase()}]`;
     sel.appendChild(o);
   });
-  sel.value = current;
+  if (cur) sel.value = cur;
 }
 
-function populateDepots() {
-  const sel = document.getElementById('depotFilter');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— All Depots —</option>';
-  const depots = [...new Set(vehicles.map(v => v.depot).filter(Boolean))].sort();
-  depots.forEach(d => {
+async function onCampaignChange() {
+  const id = document.getElementById('campaignSelect').value;
+  if (!id) {
+    activeCampaign = null;
+    vehicles = [];
+    document.getElementById('dropZone').classList.add('disabled');
+    document.getElementById('btnSync').disabled = true;
+    setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
+    return;
+  }
+  activeCampaign = campaignList.find(c => c.id === id);
+  document.getElementById('dropZone').classList.remove('disabled');
+  setTrackerLoading(`Loading ${activeCampaign.name}…`);
+  try {
+    const data = await sbGet(activeCampaign.fileName);
+    vehicles = data && Array.isArray(data) ? data : [];
+    if (vehicles.length === 0) {
+      setTrackerEmpty('No vehicles yet', 'Drop a fleet .xlsx file to import vehicles for this campaign.');
+    } else {
+      populateFilters();
+      renderGrid();
+    }
+    document.getElementById('btnSync').disabled = false;
+  } catch(e) {
+    showToast('Failed to load campaign data: ' + e.message, 'error');
+    setTrackerEmpty('Load failed', e.message);
+  }
+}
+
+// ══ CONFIG — CREATE CAMPAIGN ══
+let fieldRowCount = 0;
+
+function addFieldRow(field) {
+  // field = {id, label, type, options} or null for blank
+  fieldRowCount++;
+  const id = field ? field.id : `field_${Date.now()}_${fieldRowCount}`;
+  const label = field ? field.label : '';
+  const type  = field ? field.type  : 'text';
+  const opts  = field && field.options ? field.options.join(', ') : '';
+
+  const row = document.createElement('div');
+  row.className = 'field-row';
+  row.dataset.fieldId = id;
+  row.innerHTML = `
+    <input type="text" placeholder="Field label" value="${label}" class="field-label-input">
+    <select class="field-type-select" onchange="onFieldTypeChange(this)">
+      <option value="text"     ${type==='text'    ?'selected':''}>Text Input</option>
+      <option value="toggle"   ${type==='toggle'  ?'selected':''}>Yes/No Toggle</option>
+      <option value="dropdown" ${type==='dropdown'?'selected':''}>Dropdown</option>
+    </select>
+    <input type="text" class="field-opts-input dropdown-opts-input" placeholder="Option 1, Option 2…" value="${opts}" style="display:${type==='dropdown'?'block':'none'}">
+    <button class="remove-btn" onclick="this.closest('.field-row').remove()" title="Remove">✕</button>
+  `;
+  document.getElementById('fieldsBuilder').appendChild(row);
+}
+
+function onFieldTypeChange(sel) {
+  const row = sel.closest('.field-row');
+  const optsInput = row.querySelector('.field-opts-input');
+  optsInput.style.display = sel.value === 'dropdown' ? 'block' : 'none';
+}
+
+function getFieldRows() {
+  return [...document.querySelectorAll('#fieldsBuilder .field-row')].map(row => {
+    const label = row.querySelector('.field-label-input').value.trim();
+    const type  = row.querySelector('.field-type-select').value;
+    const opts  = row.querySelector('.field-opts-input').value.trim();
+    return {
+      id:      row.dataset.fieldId,
+      label:   label || 'Unnamed Field',
+      type,
+      options: type === 'dropdown' ? opts.split(',').map(s => s.trim()).filter(Boolean) : [],
+    };
+  });
+}
+
+async function createCampaign() {
+  const name = document.getElementById('newCampName').value.trim();
+  if (!name) { showToast('Please enter a campaign name', 'error'); return; }
+
+  const fields = getFieldRows();
+  const id = `camp_${Date.now()}`;
+  const safeName = name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const fileName = `${safeName}-CampaignData.json`;
+
+  const campaign = { id, name, fileName, status: 'open', fields, createdAt: new Date().toISOString() };
+  campaignList.push(campaign);
+
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    // Initialise empty campaign data file
+    await sbPut(fileName, []);
+    showToast(`Campaign "${name}" created`, 'success');
+    document.getElementById('newCampName').value = '';
+    document.getElementById('fieldsBuilder').innerHTML = '';
+    fieldRowCount = 0;
+    refreshCampaignDropdown();
+    renderCampaignList();
+  } catch(e) {
+    campaignList.pop();
+    showToast('Create failed: ' + e.message, 'error');
+  }
+}
+
+// ══ CONFIG — CAMPAIGN LIST ══
+function renderCampaignList() {
+  const el = document.getElementById('campaignList');
+  if (campaignList.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  campaignList.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'campaign-item';
+    const fieldPreview = c.fields.length
+      ? c.fields.map(f => f.label).join(' · ')
+      : 'No custom fields';
+    div.innerHTML = `
+      <div style="flex:1;">
+        <div class="camp-name">${c.name}</div>
+        <div class="camp-fields-preview">${fieldPreview}</div>
+        <div class="camp-file">${c.fileName}</div>
+      </div>
+      <span class="camp-status-badge ${c.status}" onclick="toggleCampaignStatus('${c.id}')" title="Click to toggle">${c.status.toUpperCase()}</span>
+    `;
+    el.appendChild(div);
+  });
+}
+
+async function toggleCampaignStatus(id) {
+  const c = campaignList.find(x => x.id === id);
+  if (!c) return;
+  c.status = c.status === 'open' ? 'closed' : 'open';
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    renderCampaignList();
+    refreshCampaignDropdown();
+    showToast(`"${c.name}" marked as ${c.status}`, 'success');
+  } catch(e) {
+    c.status = c.status === 'open' ? 'closed' : 'open'; // revert
+    showToast('Update failed: ' + e.message, 'error');
+  }
+}
+
+// ══ FLEET FILE PARSING ══
+function setupDrop() {
+  const zone = document.getElementById('dropZone');
+  zone.addEventListener('click', () => { if (!zone.classList.contains('disabled')) document.getElementById('fileInput').click(); });
+  document.getElementById('fileInput').addEventListener('change', e => {
+    if (e.target.files[0]) handleXlsx(e.target.files[0]);
+    e.target.value = '';
+  });
+  zone.addEventListener('dragover', e => { e.preventDefault(); if (!zone.classList.contains('disabled')) zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if (zone.classList.contains('disabled')) return;
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.xlsx')) handleXlsx(file);
+    else showToast('Please drop a .xlsx file', 'error');
+  });
+}
+
+const MONTH_MAP = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 };
+
+function excelDateToString(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (isNaN(s)) return s;
+  const serial = parseInt(s);
+  const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+  return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth()+1).padStart(2,'0')}-${String(utc.getUTCDate()).padStart(2,'0')}`;
+}
+
+function parseRow(row) {
+  const prodStatus   = row[0]  ? String(row[0]).trim()  : '';
+  const shipStatus   = row[1]  ? String(row[1]).trim()  : '';
+  const drivelineSys = row[25] ? String(row[25]).trim() : '';
+  const filter = 'delivered to customer';
+  if (prodStatus.toLowerCase() !== filter && shipStatus.toLowerCase() !== filter) return null;
+  if (drivelineSys.toLowerCase() !== 'veds 1.5') return null;
+  const bodyNum = row[6] ? String(row[6]).trim() : null;
+  if (!bodyNum) return null;
+  const regMonthStr = row[16] ? String(row[16]).trim().toLowerCase() : null;
+  const regYear     = row[17] ? parseInt(row[17]) : null;
+  let regDate = null;
+  if (regYear && regMonthStr && MONTH_MAP[regMonthStr]) regDate = `${regYear}-${String(MONTH_MAP[regMonthStr]).padStart(2,'0')}`;
+  else if (regYear) regDate = String(regYear);
+  return {
+    body_number:       bodyNum,
+    production_status: prodStatus || null,
+    shipping_status:   shipStatus || null,
+    delivery_date:     excelDateToString(row[4]),
+    fleet_number:      row[7]  ? String(row[7]).trim()  : null,
+    account_name:      row[8]  ? String(row[8]).trim()  : null,
+    operator:          row[9]  ? String(row[9]).trim()  : null,
+    depot:             row[10] ? String(row[10]).trim() : null,
+    model:             row[11] ? String(row[11]).trim() : null,
+    deck_type:         row[14] ? String(row[14]).trim() : null,
+    registration:      row[15] ? String(row[15]).trim() : null,
+    reg_date:          regDate,
+    chassis_number:    row[18] ? String(row[18]).trim() : null,
+  };
+}
+
+async function handleXlsx(file) {
+  if (!activeCampaign) { showToast('Select a campaign first', 'error'); return; }
+  showToast('Parsing fleet file…', 'info');
+  try {
+    const buffer = await file.arrayBuffer();
+    const wb = window.XLSX.read(buffer, { type: 'array' });
+    let wsName = wb.SheetNames.find(n => n === 'CM Warranty');
+    if (!wsName) wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'cm warranty');
+    if (!wsName) { showToast('Sheet not found. Available: ' + wb.SheetNames.join(', '), 'error'); return; }
+    const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header:1, defval:null });
+    const existingMap = {};
+    vehicles.forEach((v,i) => { existingMap[v.body_number] = i; });
+    let added = 0;
+    for (let r = 1; r < rows.length; r++) {
+      const parsed = parseRow(rows[r]);
+      if (!parsed) continue;
+      if (existingMap[parsed.body_number] !== undefined) {
+        const existing = vehicles[existingMap[parsed.body_number]];
+        const saved = { engineer_data: existing.engineer_data, update_status: existing.update_status };
+        Object.assign(existing, parsed, saved);
+      } else {
+        parsed.update_status = 'Pending';
+        parsed.engineer_data = buildEmptyEngineerData(activeCampaign.fields);
+        existingMap[parsed.body_number] = vehicles.length;
+        vehicles.push(parsed);
+        added++;
+      }
+    }
+    populateFilters();
+    renderGrid();
+    showToast(`Parsed: ${added} new vehicles added. Syncing…`, 'info');
+    await syncCampaignData(true);
+  } catch(e) {
+    showToast('Parse error: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+function buildEmptyEngineerData(fields) {
+  const data = { submitted_date: null };
+  fields.forEach(f => {
+    data[f.id] = f.type === 'toggle' ? false : null;
+  });
+  return data;
+}
+
+// ══ SYNC ══
+async function syncCampaignData(silent = false) {
+  if (!activeCampaign) return;
+  try {
+    await sbPut(activeCampaign.fileName, vehicles);
+    if (!silent) showToast('Sync complete', 'success');
+    document.getElementById('btnSync').disabled = false;
+  } catch(e) {
+    showToast('Sync failed: ' + e.message, 'error');
+  }
+}
+
+// ══ FILTERS ══
+function populateFilters() {
+  populateSelect('operatorFilter', vehicles.map(v => v.account_name), '— All —');
+  populateSelect('depotFilter',    vehicles.map(v => v.depot),        '— All —', true);
+}
+
+function populateSelect(id, values, placeholder, includeUnknown = false) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  const unique = [...new Set(values.filter(Boolean))].sort();
+  unique.forEach(v => {
     const o = document.createElement('option');
-    o.value = d; o.textContent = d;
+    o.value = v; o.textContent = v;
     sel.appendChild(o);
   });
-  // Add Unknown option if any vehicles have no depot
-  const hasUnknown = vehicles.some(v => !v.depot);
-  if (hasUnknown) {
+  if (includeUnknown && values.some(v => !v)) {
     const o = document.createElement('option');
     o.value = '__unknown__'; o.textContent = 'Unknown';
     sel.appendChild(o);
   }
-  sel.value = current;
+  sel.value = cur;
 }
 
-// ── GRID ──
+// ══ GRID ══
 function renderGrid() {
-  if (vehicles.length === 0) { showEmptyState(); return; }
-
+  if (vehicles.length === 0) { setTrackerEmpty('No vehicles yet', 'Drop a fleet .xlsx file to import vehicles.'); return; }
   const opFilter  = document.getElementById('operatorFilter').value;
   const depFilter = document.getElementById('depotFilter').value;
   const stFilter  = document.getElementById('statusFilter').value;
   const search    = document.getElementById('searchInput').value.trim().toUpperCase();
 
   const filtered = vehicles.filter(v => {
-    if (opFilter  && v.account_name !== opFilter)  return false;
+    if (opFilter && v.account_name !== opFilter) return false;
     if (depFilter) {
       if (depFilter === '__unknown__' && v.depot) return false;
       if (depFilter !== '__unknown__' && v.depot !== depFilter) return false;
     }
-    if (stFilter  && v.update_status !== stFilter)  return false;
-    if (search    && !v.body_number.toUpperCase().includes(search)) return false;
+    if (stFilter && v.update_status !== stFilter) return false;
+    if (search && !v.body_number.toUpperCase().includes(search)) return false;
     return true;
   });
 
   const groups = {};
-  filtered.forEach(v => {
-    const g = v.account_name || 'Unknown';
-    if (!groups[g]) groups[g] = [];
-    groups[g].push(v);
-  });
+  filtered.forEach(v => { const g = v.account_name || 'Unknown'; if (!groups[g]) groups[g] = []; groups[g].push(v); });
 
-  const content = document.getElementById('mainContent');
+  const content = document.getElementById('trackerContent');
   content.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'grid-wrap';
@@ -679,8 +830,7 @@ function renderGrid() {
       groups[grp].forEach(v => {
         const idx = vehicles.indexOf(v);
         const card = document.createElement('div');
-        const sc = v.update_status.replace(' ', '-');
-        card.className = `vehicle-card status-${sc}`;
+        card.className = `vehicle-card status-${v.update_status.replace(' ','-')}`;
         card.textContent = v.body_number;
         card.title = v.update_status;
         card.onclick = () => openModal(idx);
@@ -690,10 +840,9 @@ function renderGrid() {
       wrap.appendChild(section);
     });
   }
-
   content.appendChild(wrap);
 
-  const counts = { 'Pending': 0, 'In Progress': 0, 'Complete': 0 };
+  const counts = { 'Pending':0, 'In Progress':0, 'Complete':0 };
   filtered.forEach(v => { if (counts[v.update_status] !== undefined) counts[v.update_status]++; });
   document.getElementById('statPending').textContent  = counts['Pending'];
   document.getElementById('statProgress').textContent = counts['In Progress'];
@@ -701,40 +850,74 @@ function renderGrid() {
   document.getElementById('statTotal').textContent    = filtered.length;
 }
 
-// ── MODAL ──
+// ══ MODAL ══
 function openModal(idx) {
   currentIdx = idx;
   const v = vehicles[idx];
-  checkStates = {
-    dis_software_update: v.engineer_data.dis_software_update || false,
-    evcc1_hsout1:        v.engineer_data.evcc1_hsout1 || false,
-    evcc2_hsout1:        v.engineer_data.evcc2_hsout1 || false,
-  };
+  const fields = activeCampaign ? activeCampaign.fields : [];
+
+  toggleStates = {};
+  fields.filter(f => f.type === 'toggle').forEach(f => {
+    toggleStates[f.id] = v.engineer_data[f.id] || false;
+  });
 
   document.getElementById('modalTitle').textContent = 'Body ' + v.body_number;
-  document.getElementById('modalMeta').textContent  =
-    [v.model, v.deck_type, v.registration || 'No Reg'].filter(Boolean).join(' · ');
+  document.getElementById('modalMeta').textContent  = [v.model, v.deck_type, v.registration || 'No Reg'].filter(Boolean).join(' · ');
 
   const infoFields = [
-    ['Account',    v.account_name],  ['Operator',  v.operator],
-    ['Depot',      v.depot],         ['Fleet No.', v.fleet_number],
-    ['Chassis',    v.chassis_number],['Reg Date',  v.reg_date],
+    ['Account', v.account_name], ['Operator', v.operator],
+    ['Depot',   v.depot],        ['Fleet No.', v.fleet_number],
+    ['Chassis', v.chassis_number],['Reg Date', v.reg_date],
     ['Production', v.production_status], ['Delivery', v.delivery_date || '—'],
   ];
-  document.getElementById('vehicleInfo').innerHTML = infoFields.map(([l, val]) =>
-    `<div class="info-item"><div class="lbl">${l}</div><div class="val">${val || '—'}</div></div>`
+  document.getElementById('vehicleInfo').innerHTML = infoFields.map(([l,val]) =>
+    `<div class="info-item"><div class="lbl">${l}</div><div class="val">${val||'—'}</div></div>`
   ).join('');
 
-  const ed = v.engineer_data;
-  document.getElementById('f_dis_part_number').value    = ed.dis_part_number    || '';
-  document.getElementById('f_dis_serial_number').value  = ed.dis_serial_number  || '';
-  document.getElementById('f_evcc1_serial_number').value= ed.evcc1_serial_number|| '';
-  document.getElementById('f_evcc2_serial_number').value= ed.evcc2_serial_number|| '';
-  document.getElementById('f_notes').value               = ed.notes              || '';
+  // Build dynamic engineer form
+  const formBody = document.getElementById('engFormBody');
+  formBody.innerHTML = '';
+  if (fields.length === 0) {
+    formBody.innerHTML = '<div style="color:var(--muted);font-size:13px;">This campaign has no engineer fields defined.</div>';
+  } else {
+    fields.forEach(f => {
+      const wrap = document.createElement('div');
+      wrap.className = 'eng-field';
+      const val = v.engineer_data[f.id];
+      if (f.type === 'text') {
+        wrap.innerHTML = `
+          <label>${f.label}</label>
+          <input type="text" id="ef_${f.id}" value="${val||''}" placeholder="${f.label}…">`;
+      } else if (f.type === 'toggle') {
+        const on = toggleStates[f.id];
+        wrap.innerHTML = `
+          <div class="toggle-field ${on?'on':''}" id="tf_${f.id}" onclick="toggleEngField('${f.id}')">
+            <span class="tl">${f.label}</span>
+            <span class="ts" id="ts_${f.id}">${on?'Y':'N'}</span>
+          </div>`;
+      } else if (f.type === 'dropdown') {
+        const opts = (f.options||[]).map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+        wrap.innerHTML = `
+          <label>${f.label}</label>
+          <select id="ef_${f.id}"><option value="">— Select —</option>${opts}</select>`;
+      }
+      formBody.appendChild(wrap);
+    });
+    // Notes always last
+    const notesWrap = document.createElement('div');
+    notesWrap.className = 'eng-field';
+    notesWrap.innerHTML = `<label>Notes</label><textarea id="ef_notes" placeholder="Any additional notes…">${v.engineer_data.notes||''}</textarea>`;
+    formBody.appendChild(notesWrap);
+  }
 
-  ['dis_software_update','evcc1_hsout1','evcc2_hsout1'].forEach(k => updateToggleUI(k));
   updateModalStatus();
   document.getElementById('modalOverlay').classList.add('open');
+
+  // Attach live status update to text/select inputs
+  fields.filter(f => f.type !== 'toggle').forEach(f => {
+    const el = document.getElementById('ef_' + f.id);
+    if (el) el.addEventListener('input', updateModalStatus);
+  });
 }
 
 function closeModal() {
@@ -746,29 +929,37 @@ function handleOverlayClick(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
 }
 
-function toggleCheck(key) {
-  checkStates[key] = !checkStates[key];
-  updateToggleUI(key);
+function toggleEngField(fieldId) {
+  toggleStates[fieldId] = !toggleStates[fieldId];
+  const on = toggleStates[fieldId];
+  const tf = document.getElementById('tf_' + fieldId);
+  const ts = document.getElementById('ts_' + fieldId);
+  if (tf) { tf.classList.toggle('on', on); }
+  if (ts) { ts.textContent = on ? 'Y' : 'N'; }
   updateModalStatus();
 }
 
-function updateToggleUI(key) {
-  const cb = document.getElementById('cb_' + key);
-  const ts = document.getElementById('ts_' + key);
-  if (checkStates[key]) { cb.classList.add('checked'); ts.textContent = 'Y'; }
-  else                  { cb.classList.remove('checked'); ts.textContent = 'N'; }
-}
-
 function computeStatus() {
-  const disPart  = document.getElementById('f_dis_part_number').value.trim();
-  const disSerial= document.getElementById('f_dis_serial_number').value.trim();
-  const evcc1s   = document.getElementById('f_evcc1_serial_number').value.trim();
-  const evcc2s   = document.getElementById('f_evcc2_serial_number').value.trim();
-  const allFilled  = disPart && disSerial && evcc1s && evcc2s;
-  const allChecked = checkStates.dis_software_update && checkStates.evcc1_hsout1 && checkStates.evcc2_hsout1;
-  const anyTouched = disPart || disSerial || evcc1s || evcc2s ||
-                     checkStates.dis_software_update || checkStates.evcc1_hsout1 || checkStates.evcc2_hsout1;
-  if (allFilled && allChecked) return 'Complete';
+  if (!activeCampaign) return 'Pending';
+  const fields = activeCampaign.fields;
+  if (fields.length === 0) return 'Pending';
+
+  let allDone = true;
+  let anyTouched = false;
+
+  fields.forEach(f => {
+    if (f.type === 'toggle') {
+      if (!toggleStates[f.id]) allDone = false;
+      else anyTouched = true;
+    } else {
+      const el = document.getElementById('ef_' + f.id);
+      const val = el ? el.value.trim() : '';
+      if (!val) allDone = false;
+      else anyTouched = true;
+    }
+  });
+
+  if (allDone) return 'Complete';
   if (anyTouched) return 'In Progress';
   return 'Pending';
 }
@@ -776,211 +967,53 @@ function computeStatus() {
 function updateModalStatus() {
   const status = computeStatus();
   const el = document.getElementById('modalStatus');
-  el.className = 'status-badge ' + status.replace(' ', '-');
+  el.className = 'status-badge ' + status.replace(' ','-');
   el.textContent = status;
 }
 
-['f_dis_part_number','f_dis_serial_number','f_evcc1_serial_number','f_evcc2_serial_number'].forEach(id => {
-  document.getElementById(id).addEventListener('input', updateModalStatus);
-});
-
 async function saveEntry() {
-  if (currentIdx === null) return;
+  if (currentIdx === null || !activeCampaign) return;
   const v = vehicles[currentIdx];
+  const fields = activeCampaign.fields;
   const today = new Date();
-  const dateStr = today.getFullYear() + '-' +
-    String(today.getMonth()+1).padStart(2,'0') + '-' +
-    String(today.getDate()).padStart(2,'0');
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
-  v.engineer_data = {
-    dis_part_number:     document.getElementById('f_dis_part_number').value.trim()    || null,
-    dis_serial_number:   document.getElementById('f_dis_serial_number').value.trim()  || null,
-    dis_software_update: checkStates.dis_software_update,
-    evcc1_serial_number: document.getElementById('f_evcc1_serial_number').value.trim()|| null,
-    evcc1_hsout1:        checkStates.evcc1_hsout1,
-    evcc2_serial_number: document.getElementById('f_evcc2_serial_number').value.trim()|| null,
-    evcc2_hsout1:        checkStates.evcc2_hsout1,
-    notes:               document.getElementById('f_notes').value.trim()              || null,
-    submitted_date:      dateStr,
-  };
-  v.update_status = computeStatus();
+  const edData = { submitted_date: dateStr, notes: null };
+  fields.forEach(f => {
+    if (f.type === 'toggle') {
+      edData[f.id] = toggleStates[f.id] || false;
+    } else {
+      const el = document.getElementById('ef_' + f.id);
+      edData[f.id] = el ? (el.value.trim() || null) : null;
+    }
+  });
+  const notesEl = document.getElementById('ef_notes');
+  if (notesEl) edData.notes = notesEl.value.trim() || null;
+
+  v.engineer_data  = edData;
+  v.update_status  = computeStatus();
+
   closeModal();
   renderGrid();
-
-  showToast('Saving to Supabase…', 'info');
-  try {
-    await uploadToSupabase(vehicles);
-    showToast('Saved — ' + v.body_number + ' → ' + v.update_status, 'success');
-  } catch (e) {
-    showToast('Supabase save failed: ' + e.message, 'error');
-  }
+  showToast('Saving…', 'info');
+  await syncCampaignData(true);
+  showToast(`Saved — ${v.body_number} → ${v.update_status}`, 'success');
 }
 
-async function syncToSupabase() {
-  showToast('Syncing to Supabase…', 'info');
-  try {
-    await uploadToSupabase(vehicles);
-    showToast('Sync complete — ' + vehicles.length + ' vehicles saved', 'success');
-    document.getElementById('btnSync').disabled = true;
-    dirty = false;
-  } catch (e) {
-    showToast('Sync failed: ' + e.message, 'error');
-  }
+// ══ UI HELPERS ══
+function setTrackerLoading(msg) {
+  document.getElementById('trackerContent').innerHTML =
+    `<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`;
 }
 
-// ── XLSX PARSE ──
-function setupDrop() {
-  const zone = document.getElementById('dropZone');
-  zone.addEventListener('click', () => document.getElementById('fileInput').click());
-  document.getElementById('fileInput').addEventListener('change', e => {
-    if (e.target.files[0]) handleXlsx(e.target.files[0]);
-    e.target.value = '';
-  });
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.xlsx')) handleXlsx(file);
-    else showToast('Please drop a .xlsx file', 'error');
-  });
+function setTrackerEmpty(title, msg) {
+  document.getElementById('trackerContent').innerHTML =
+    `<div class="empty-state"><strong>${title}</strong>${msg}</div>`;
 }
 
-const MONTH_MAP = {
-  january:1, february:2, march:3, april:4, may:5, june:6,
-  july:7, august:8, september:9, october:10, november:11, december:12
-};
-
-function excelDateToString(val) {
-  if (!val) return null;
-  // If it's already a string date, return trimmed
-  const s = String(val).trim();
-  if (isNaN(s)) return s;
-  // Excel serial date: days since 1900-01-00 (with leap-year bug)
-  const serial = parseInt(s);
-  const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
-  const y = utc.getUTCFullYear();
-  const m = String(utc.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(utc.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function parseRow(row) {
-  const prodStatus   = row[0]  ? String(row[0]).trim()  : '';
-  const shipStatus   = row[1]  ? String(row[1]).trim()  : '';
-  const drivelineSys = row[25] ? String(row[25]).trim() : '';
-
-  const deliveryFilter  = 'delivered to customer';
-  const drivelineFilter = 'veds 1.5';
-
-  if (prodStatus.toLowerCase() !== deliveryFilter && shipStatus.toLowerCase() !== deliveryFilter) return null;
-  if (drivelineSys.toLowerCase() !== drivelineFilter) return null;
-
-  const bodyNum = row[6] ? String(row[6]).trim() : null;
-  if (!bodyNum) return null;
-
-  const regMonthStr = row[16] ? String(row[16]).trim().toLowerCase() : null;
-  const regYear     = row[17] ? parseInt(row[17]) : null;
-  let regDate = null;
-  if (regYear && regMonthStr && MONTH_MAP[regMonthStr]) {
-    regDate = `${regYear}-${String(MONTH_MAP[regMonthStr]).padStart(2,'0')}`;
-  } else if (regYear) {
-    regDate = String(regYear);
-  }
-
-  return {
-    body_number:       bodyNum,
-    production_status: prodStatus || null,
-    shipping_status:   shipStatus || null,
-    delivery_date:     row[4]  ? excelDateToString(row[4]) : null,
-    fleet_number:      row[7]  ? String(row[7]).trim()  : null,
-    account_name:      row[8]  ? String(row[8]).trim()  : null,
-    operator:          row[9]  ? String(row[9]).trim()  : null,
-    depot:             row[10] ? String(row[10]).trim() : null,
-    model:             row[11] ? String(row[11]).trim() : null,
-    deck_type:         row[14] ? String(row[14]).trim() : null,
-    registration:      row[15] ? String(row[15]).trim() : null,
-    reg_date:          regDate,
-    chassis_number:    row[18] ? String(row[18]).trim() : null,
-  };
-}
-
-async function handleXlsx(file) {
-  showToast('Parsing fleet file…', 'info');
-  try {
-    const buffer = await file.arrayBuffer();
-    const wb = window.XLSX.read(buffer, { type: 'array' });
-
-    // Find sheet — try exact match first, then case-insensitive
-    let wsName = wb.SheetNames.find(n => n === 'CM Warranty');
-    if (!wsName) wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'cm warranty');
-    if (!wsName) {
-      showToast('Sheet not found. Available sheets: ' + wb.SheetNames.join(', '), 'error');
-      return;
-    }
-    const ws = wb.Sheets[wsName];
-
-    const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-    // Build map of existing vehicles by body number
-    const existingMap = {};
-    vehicles.forEach((v, i) => { existingMap[v.body_number] = i; });
-
-    let added = 0, skipped = 0;
-
-    for (let r = 1; r < rows.length; r++) {
-      const parsed = parseRow(rows[r]);
-      if (!parsed) { skipped++; continue; }
-
-      if (existingMap[parsed.body_number] !== undefined) {
-        // Update vehicle fields, preserve engineer data & status
-        const existing = vehicles[existingMap[parsed.body_number]];
-        const ed = existing.engineer_data;
-        const us = existing.update_status;
-        Object.assign(existing, parsed);
-        existing.engineer_data = ed;
-        existing.update_status = us;
-      } else {
-        parsed.update_status  = 'Pending';
-        parsed.engineer_data  = {
-          dis_part_number: null, dis_serial_number: null, dis_software_update: false,
-          evcc1_serial_number: null, evcc1_hsout1: false,
-          evcc2_serial_number: null, evcc2_hsout1: false,
-          notes: null, submitted_date: null
-        };
-        existingMap[parsed.body_number] = vehicles.length;
-        vehicles.push(parsed);
-        added++;
-      }
-    }
-
-    populateOperators();
-    populateDepots();
-    renderGrid();
-
-    // Upload to Supabase
-    showToast(`Parsed: ${added} new vehicles added (${skipped} skipped). Syncing…`, 'info');
-    try {
-      await uploadToSupabase(vehicles);
-      showToast(`Sync complete — ${vehicles.length} vehicles in campaign`, 'success');
-      document.getElementById('btnSync').disabled = true;
-      dirty = false;
-    } catch (e) {
-      showToast('Parse OK but sync failed: ' + e.message, 'error');
-      document.getElementById('btnSync').disabled = false;
-      dirty = true;
-    }
-
-  } catch (e) {
-    showToast('Parse error: ' + e.message, 'error');
-    console.error(e);
-  }
-}
-
-// ── TOAST ──
+// ══ TOAST ══
 let toastTimer;
-function showToast(msg, type = 'info') {
+function showToast(msg, type='info') {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = `toast ${type} show`;
@@ -988,7 +1021,7 @@ function showToast(msg, type = 'info') {
   toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
 }
 
-// ── START ──
+// ══ START ══
 init();
 </script>
 </body>
