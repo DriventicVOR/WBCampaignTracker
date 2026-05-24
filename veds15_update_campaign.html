@@ -189,7 +189,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.1.0</div>
+  <div class="version-badge">v2.1.1</div>
   <div class="spacer"></div>
 </header>
 
@@ -313,6 +313,19 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="modal-footer" style="justify-content:flex-end;">
       <button onclick="closeEditModal()">Cancel</button>
       <button class="primary" onclick="saveEditCampaign()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="alertModalOverlay">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div><h2 id="alertModalTitle">Notice</h2></div>
+      <button class="modal-close" onclick="closeAlertModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;font-size:14px;color:var(--text);line-height:1.6;" id="alertModalBody"></div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button class="primary" onclick="closeAlertModal()">OK</button>
     </div>
   </div>
 </div>
@@ -582,9 +595,24 @@ async function toggleCampaignStatus(id) {
 }
 
 // ══ EDIT CAMPAIGN MODAL ══
-function openEditModal(id) {
+async function openEditModal(id) {
   const c = campaignList.find(x=>x.id===id);
   if (!c) return;
+
+  // Check if any vehicles are In Progress or Complete
+  try {
+    const data = await sbGet(c.fileName);
+    const records = data && Array.isArray(data) ? data : [];
+    const hasStarted = records.some(v => v.update_status === 'In Progress' || v.update_status === 'Complete');
+    if (hasStarted) {
+      showAlertModal('Editing Not Allowed', 'Campaign has started, editing not allowed.');
+      return;
+    }
+  } catch(e) {
+    showToast('Could not verify campaign status: ' + e.message, 'error');
+    return;
+  }
+
   document.getElementById('editCampId').value = id;
   document.getElementById('editCampName').value = c.name;
   populateBuilder('editBuilderArea', c.schema||[]);
@@ -859,6 +887,15 @@ async function saveEntry() {
 }
 
 // ══ HELPERS ══
+function showAlertModal(title, body) {
+  document.getElementById('alertModalTitle').textContent = title;
+  document.getElementById('alertModalBody').textContent  = body;
+  document.getElementById('alertModalOverlay').classList.add('open');
+}
+function closeAlertModal() {
+  document.getElementById('alertModalOverlay').classList.remove('open');
+}
+
 function setTrackerLoading(msg) { document.getElementById('trackerContent').innerHTML=`<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`; }
 function setTrackerEmpty(t,m)   { document.getElementById('trackerContent').innerHTML=`<div class="empty-state"><strong>${t}</strong>${m}</div>`; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
