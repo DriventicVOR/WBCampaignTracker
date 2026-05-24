@@ -7,316 +7,189 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
-
 :root {
-  --bg:          #0d1117;
-  --surface:     #161b22;
-  --surface2:    #1c2128;
-  --border:      #30363d;
-  --accent:      #58a6ff;
-  --accent2:     #1f6feb;
-  --text:        #e6edf3;
-  --muted:       #7d8590;
-  --pending:     #f85149;
-  --progress:    #d29922;
-  --complete:    #3fb950;
-  --pending-bg:  rgba(248,81,73,0.15);
-  --progress-bg: rgba(210,153,34,0.15);
-  --complete-bg: rgba(63,185,80,0.15);
-  --modal-bg:    rgba(0,0,0,0.75);
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --accent:#58a6ff; --accent2:#1f6feb; --text:#e6edf3; --muted:#7d8590;
+  --pending:#f85149; --progress:#d29922; --complete:#3fb950;
+  --pending-bg:rgba(248,81,73,0.15); --progress-bg:rgba(210,153,34,0.15); --complete-bg:rgba(63,185,80,0.15);
+  --modal-bg:rgba(0,0,0,0.75);
 }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
+.logo{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--accent);letter-spacing:1px;white-space:nowrap;}
+.logo span{color:var(--muted);font-weight:400;}
+.version-badge{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;}
+.spacer{flex:1;}
 
-/* ── HEADER ── */
-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 14px 24px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-.logo { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: 1px; white-space: nowrap; }
-.logo span { color: var(--muted); font-weight: 400; }
-.version-badge { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
-.spacer { flex: 1; }
+/* TABS */
+.tab-bar{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;flex-shrink:0;}
+.tab{padding:10px 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;user-select:none;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 
-/* ── TABS ── */
-.tab-bar {
-  display: flex;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0 24px;
-  flex-shrink: 0;
-}
-.tab {
-  padding: 10px 18px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-  user-select: none;
-}
-.tab:hover { color: var(--text); }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* CONTROLS */
+select,button,input[type="text"],textarea{font-family:'Inter',sans-serif;font-size:13px;}
+button,select{padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;transition:border-color .2s,background .2s;}
+button:hover,select:hover{border-color:var(--accent);background:var(--surface);}
+select:focus{outline:none;border-color:var(--accent);}
+button.primary{background:var(--accent2);border-color:var(--accent);color:#fff;font-weight:500;}
+button.primary:hover{background:var(--accent);}
+button.danger{background:var(--pending-bg);border-color:rgba(248,81,73,0.4);color:var(--pending);}
+button.danger:hover{background:rgba(248,81,73,0.25);}
+button.ghost{background:none;border-color:var(--border);color:var(--muted);}
+button.ghost:hover{border-color:var(--accent);color:var(--text);}
+button:disabled{opacity:.4;cursor:not-allowed;}
+input[type="text"],textarea{padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);transition:border-color .2s;}
+input[type="text"]:focus,textarea:focus{outline:none;border-color:var(--accent);}
+input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
-/* ── COMMON CONTROLS ── */
-select, button, input[type="text"], textarea {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-}
-button, select {
-  padding: 7px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-button:hover, select:hover { border-color: var(--accent); background: var(--surface); }
-select:focus { outline: none; border-color: var(--accent); }
-button.primary { background: var(--accent2); border-color: var(--accent); color: #fff; font-weight: 500; }
-button.primary:hover { background: var(--accent); }
-button.danger { background: rgba(248,81,73,0.15); border-color: rgba(248,81,73,0.4); color: var(--pending); }
-button.danger:hover { background: rgba(248,81,73,0.25); }
-button:disabled { opacity: 0.4; cursor: not-allowed; }
+/* TRACKER */
+.tracker-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.campaign-select-wrap{display:flex;align-items:center;gap:8px;}
+.campaign-select-wrap label{font-size:13px;color:var(--muted);white-space:nowrap;}
+.campaign-select-wrap select{min-width:260px;}
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:8px 16px;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.drop-zone.drag-over,.drop-zone:hover{border-color:var(--accent);color:var(--accent);}
+.drop-zone.disabled{opacity:.35;pointer-events:none;}
+.stats-bar{display:flex;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;gap:20px;align-items:center;}
+.stat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+.stat .dot{width:10px;height:10px;border-radius:50%;}
+.stat .dot.pending{background:var(--pending);}
+.stat .dot.progress{background:var(--progress);}
+.stat .dot.complete{background:var(--complete);}
+.stat strong{color:var(--text);font-size:15px;font-family:'Share Tech Mono';}
+.filter-bar{padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.filter-bar label{font-size:13px;color:var(--muted);}
+.filter-bar select{min-width:160px;}
+.search-input{font-family:'Share Tech Mono',monospace;font-size:13px;width:150px;}
+.grid-wrap{padding:20px 24px;overflow-y:auto;flex:1;}
+.grid-section{margin-bottom:28px;}
+.grid-section h3{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+.vehicle-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.vehicle-card{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:600;padding:8px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:transform .1s,box-shadow .15s,border-color .15s;min-width:72px;text-align:center;letter-spacing:.5px;user-select:none;}
+.vehicle-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.4);border-color:rgba(255,255,255,.2);}
+.vehicle-card.status-Pending{background:var(--pending-bg);color:var(--pending);border-color:rgba(248,81,73,.3);}
+.vehicle-card.status-In-Progress{background:var(--progress-bg);color:var(--progress);border-color:rgba(210,153,34,.3);}
+.vehicle-card.status-Complete{background:var(--complete-bg);color:var(--complete);border-color:rgba(63,185,80,.3);}
 
-input[type="text"], textarea {
-  padding: 8px 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text);
-  transition: border-color 0.2s;
-}
-input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--accent); }
-input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
+/* CONFIG */
+.config-wrap{padding:28px 24px;max-width:900px;}
+.config-section{margin-bottom:36px;}
+.config-section h2{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.new-campaign-form{display:flex;flex-direction:column;gap:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:20px;}
+.form-row-inline{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.field-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px;}
+.field-group label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+.field-group input[type="text"]{width:100%;}
 
-/* ── TRACKER TAB ── */
-.tracker-toolbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.campaign-select-wrap { display: flex; align-items: center; gap: 8px; }
-.campaign-select-wrap label { font-size: 13px; color: var(--muted); white-space: nowrap; }
-.campaign-select-wrap select { min-width: 260px; }
+/* FIELD BUILDER */
+.builder-area{display:flex;flex-direction:column;gap:6px;}
 
-.drop-zone {
-  border: 2px dashed var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-.drop-zone.drag-over, .drop-zone:hover { border-color: var(--accent); color: var(--accent); }
-.drop-zone.disabled { opacity: 0.35; pointer-events: none; }
+/* Group block */
+.group-block{background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+.group-block-header{display:flex;align-items:center;gap:8px;}
+.group-title-input{flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;color:var(--accent);padding:4px 2px;letter-spacing:.5px;}
+.group-title-input:focus{outline:none;border-bottom-color:var(--accent);}
+.group-title-input::placeholder{color:var(--muted);font-style:italic;}
+.group-fields{display:flex;flex-direction:column;gap:5px;padding-left:4px;}
+.group-add-btn{font-size:12px;padding:4px 10px;align-self:flex-start;margin-top:2px;}
 
-.stats-bar {
-  display: flex;
-  padding: 10px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-wrap: wrap;
-  gap: 20px;
-  align-items: center;
-}
-.stat { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-.stat .dot { width: 10px; height: 10px; border-radius: 50%; }
-.stat .dot.pending  { background: var(--pending); }
-.stat .dot.progress { background: var(--progress); }
-.stat .dot.complete { background: var(--complete); }
-.stat strong { color: var(--text); font-size: 15px; font-family: 'Share Tech Mono'; }
+/* Field row */
+.field-row{display:grid;grid-template-columns:24px 1fr 130px 130px 28px;gap:6px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;}
+.field-row input[type="text"]{width:100%;font-size:13px;}
+.field-row select{font-size:13px;}
+.drag-handle{color:var(--muted);cursor:grab;font-size:16px;text-align:center;user-select:none;line-height:1;}
+.remove-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1;text-align:center;}
+.remove-btn:hover{color:var(--pending);}
+.opts-input{font-size:12px;font-style:italic;color:var(--muted);}
 
-.filter-bar {
-  padding: 10px 24px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-}
-.filter-bar label { font-size: 13px; color: var(--muted); }
-.filter-bar select { min-width: 180px; }
-.search-input { font-family: 'Share Tech Mono', monospace; font-size: 13px; width: 150px; }
+/* Standalone fields area */
+.standalone-fields{display:flex;flex-direction:column;gap:5px;}
 
-/* ── GRID ── */
-.grid-wrap { padding: 20px 24px; overflow-y: auto; flex: 1; }
-.grid-section { margin-bottom: 28px; }
-.grid-section h3 { font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-.vehicle-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-.vehicle-card {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 12px; font-weight: 600;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
-  min-width: 72px;
-  text-align: center;
-  letter-spacing: 0.5px;
-  user-select: none;
-}
-.vehicle-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
-.vehicle-card.status-Pending      { background: var(--pending-bg);  color: var(--pending);  border-color: rgba(248,81,73,0.3); }
-.vehicle-card.status-In-Progress  { background: var(--progress-bg); color: var(--progress); border-color: rgba(210,153,34,0.3); }
-.vehicle-card.status-Complete     { background: var(--complete-bg); color: var(--complete); border-color: rgba(63,185,80,0.3); }
-
-/* ── CONFIG TAB ── */
-.config-wrap { padding: 28px 24px; max-width: 860px; }
-.config-section { margin-bottom: 36px; }
-.config-section h2 { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: 1px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-
-/* New campaign form */
-.new-campaign-form { display: flex; flex-direction: column; gap: 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
-.form-row-inline { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-.field-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
-.field-group label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
-.field-group input[type="text"] { width: 100%; }
-
-/* Custom fields builder */
-.fields-builder { display: flex; flex-direction: column; gap: 8px; }
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 140px 140px auto;
-  gap: 8px;
-  align-items: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-.field-row input[type="text"] { width: 100%; font-size: 13px; }
-.field-row select { font-size: 13px; }
-.field-row .drag-handle { color: var(--muted); cursor: grab; font-size: 14px; padding: 0 4px; user-select: none; }
-.field-row .remove-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; transition: color 0.15s; }
-.field-row .remove-btn:hover { color: var(--pending); }
-.add-field-btn { align-self: flex-start; margin-top: 4px; }
-
-/* Dropdown options editor */
-.dropdown-opts-input { width: 100%; font-size: 12px; color: var(--muted); font-style: italic; }
+/* Builder toolbar */
+.builder-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 
 /* Campaign list */
-.campaign-list { display: flex; flex-direction: column; gap: 8px; }
-.campaign-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  transition: border-color 0.2s;
-}
-.campaign-item:hover { border-color: var(--accent); }
-.campaign-item .camp-name { font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 600; color: var(--text); flex: 1; }
-.campaign-item .camp-file { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); }
-.camp-status-badge {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.camp-status-badge:hover { opacity: 0.75; }
-.camp-status-badge.open   { background: var(--complete-bg); color: var(--complete); border: 1px solid rgba(63,185,80,0.4); }
-.camp-status-badge.closed { background: var(--pending-bg);  color: var(--pending);  border: 1px solid rgba(248,81,73,0.4); }
-.camp-fields-preview { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.campaign-list{display:flex;flex-direction:column;gap:8px;}
+.campaign-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;transition:border-color .2s;cursor:pointer;}
+.campaign-item:hover{border-color:var(--accent);}
+.campaign-item-header{display:flex;align-items:center;gap:12px;}
+.camp-name{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;color:var(--text);flex:1;}
+.camp-file{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+.camp-preview{font-size:11px;color:var(--muted);margin-top:4px;}
+.camp-status-badge{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer;transition:opacity .15s;white-space:nowrap;}
+.camp-status-badge:hover{opacity:.75;}
+.camp-status-badge.open{background:var(--complete-bg);color:var(--complete);border:1px solid rgba(63,185,80,.4);}
+.camp-status-badge.closed{background:var(--pending-bg);color:var(--pending);border:1px solid rgba(248,81,73,.4);}
 
-/* ── MODAL ── */
-.modal-overlay {
-  display: none; position: fixed; inset: 0;
-  background: var(--modal-bg); z-index: 100;
-  align-items: center; justify-content: center;
-  padding: 20px; backdrop-filter: blur(3px);
-}
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  width: 100%; max-width: 660px; max-height: 90vh; overflow-y: auto;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
-  animation: slideUp 0.2s ease;
-}
-@keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-.modal-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.modal-header h2 { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
-.modal-header .body-meta { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
-.modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
-.modal-close:hover { color: var(--text); }
-.vehicle-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; padding: 14px 22px; border-bottom: 1px solid var(--border); background: var(--surface2); }
-.info-item .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
-.info-item .val { color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 12px; margin-top: 1px; }
-.form-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
-.form-section-title { font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 4px; }
-.eng-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 5px; }
-.eng-field input[type="text"], .eng-field select, .eng-field textarea { width: 100%; }
-.eng-field textarea { resize: vertical; min-height: 68px; }
+/* ENTRY MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:var(--modal-bg);z-index:100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:slideUp .2s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.modal-header h2{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+.modal-header .body-meta{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1;}
+.modal-close:hover{color:var(--text);}
+.vehicle-info{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;padding:14px 22px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.info-item .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;}
+.info-item .val{color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;margin-top:1px;}
+.form-body{padding:18px 22px;display:flex;flex-direction:column;gap:10px;}
 
-/* Toggle field */
-.toggle-field {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 14px; border-radius: 5px; cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s; user-select: none;
-  background: var(--pending-bg); border: 1px solid rgba(248,81,73,0.4);
-}
-.toggle-field:hover { opacity: 0.85; transform: translateY(-1px); }
-.toggle-field.on { background: var(--complete-bg); border-color: rgba(63,185,80,0.4); }
-.toggle-field .tl { font-size: 12px; font-weight: 500; color: var(--text); }
-.toggle-field .ts { font-family: 'Share Tech Mono', monospace; font-size: 13px; font-weight: 700; color: var(--pending); }
-.toggle-field.on .ts { color: var(--complete); }
+/* Grouped section in entry form */
+.eng-group{border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--surface2);}
+.eng-group-title{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px;}
+.eng-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:5px;}
+.eng-field input[type="text"],.eng-field select,.eng-field textarea{width:100%;}
+.eng-field textarea{resize:vertical;min-height:68px;}
 
-.status-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: 'Share Tech Mono', monospace; letter-spacing: 0.5px; }
-.status-badge.Pending      { background: var(--pending-bg);  color: var(--pending); }
-.status-badge.In-Progress  { background: var(--progress-bg); color: var(--progress); }
-.status-badge.Complete     { background: var(--complete-bg); color: var(--complete); }
+/* Toggle */
+.toggle-field{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:5px;cursor:pointer;transition:opacity .15s,transform .1s;user-select:none;background:var(--pending-bg);border:1px solid rgba(248,81,73,.4);}
+.toggle-field:hover{opacity:.85;transform:translateY(-1px);}
+.toggle-field.on{background:var(--complete-bg);border-color:rgba(63,185,80,.4);}
+.toggle-field .tl{font-size:12px;font-weight:500;color:var(--text);}
+.toggle-field .ts{font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;color:var(--pending);}
+.toggle-field.on .ts{color:var(--complete);}
 
-.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.modal-footer .status-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.status-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:'Share Tech Mono',monospace;letter-spacing:.5px;}
+.status-badge.Pending{background:var(--pending-bg);color:var(--pending);}
+.status-badge.In-Progress{background:var(--progress-bg);color:var(--progress);}
+.status-badge.Complete{background:var(--complete-bg);color:var(--complete);}
 
-/* States */
-.loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 16px; color: var(--muted); font-size: 14px; }
-.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.empty-state { padding: 60px 24px; text-align: center; color: var(--muted); font-size: 14px; line-height: 2.2; }
-.empty-state strong { color: var(--text); display: block; font-size: 17px; margin-bottom: 8px; }
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.modal-footer .status-wrap{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
 
-/* Toast */
-.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; font-size: 13px; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 999; transform: translateY(80px); opacity: 0; transition: transform 0.3s, opacity 0.3s; max-width: 340px; }
-.toast.show { transform: translateY(0); opacity: 1; }
-.toast.success { border-left: 3px solid var(--complete); }
-.toast.error   { border-left: 3px solid var(--pending); }
-.toast.info    { border-left: 3px solid var(--accent); }
+/* EDIT CAMPAIGN MODAL */
+.edit-modal{max-width:780px;}
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+/* STATES */
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;gap:16px;color:var(--muted);font-size:14px;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty-state{padding:60px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:2.2;}
+.empty-state strong{color:var(--text);display:block;font-size:17px;margin-bottom:8px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:999;transform:translateY(80px);opacity:0;transition:transform .3s,opacity .3s;max-width:340px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left:3px solid var(--complete);}
+.toast.error{border-left:3px solid var(--pending);}
+.toast.info{border-left:3px solid var(--accent);}
+
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.0.0</div>
+  <div class="version-badge">v2.1.0</div>
   <div class="spacer"></div>
 </header>
 
@@ -325,7 +198,7 @@ input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
   <div class="tab" id="tab-config" onclick="switchTab('config')">⚙ Config</div>
 </div>
 
-<!-- ══ TRACKER TAB ══ -->
+<!-- ══ TRACKER ══ -->
 <div id="pane-tracker">
   <div class="tracker-toolbar">
     <div class="campaign-select-wrap">
@@ -339,14 +212,12 @@ input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
     <div class="spacer" style="flex:1"></div>
     <button id="btnSync" class="primary" onclick="syncCampaignData()" disabled>☁ Sync</button>
   </div>
-
   <div class="stats-bar">
     <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">—</strong></div>
     <div class="stat"><span class="dot progress"></span> In Progress <strong id="statProgress">—</strong></div>
     <div class="stat"><span class="dot complete"></span> Complete <strong id="statComplete">—</strong></div>
     <div class="stat" style="margin-left:auto;"><strong id="statTotal">—</strong> <span>vehicles shown</span></div>
   </div>
-
   <div class="filter-bar">
     <label>Operator</label>
     <select id="operatorFilter" onchange="renderGrid()"><option value="">— All —</option></select>
@@ -361,20 +232,14 @@ input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
     </select>
     <input class="search-input" id="searchInput" type="text" placeholder="Search body #..." oninput="renderGrid()">
   </div>
-
   <div id="trackerContent">
-    <div class="empty-state">
-      <strong>No campaign selected</strong>
-      Select a campaign above, or create one in the Config tab.
-    </div>
+    <div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>
   </div>
 </div>
 
-<!-- ══ CONFIG TAB ══ -->
-<div id="pane-config" style="display:none; overflow-y:auto; flex:1;">
+<!-- ══ CONFIG ══ -->
+<div id="pane-config" style="display:none;overflow-y:auto;flex:1;">
   <div class="config-wrap">
-
-    <!-- Create new campaign -->
     <div class="config-section">
       <h2>Create New Campaign</h2>
       <div class="new-campaign-form">
@@ -385,44 +250,69 @@ input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
           </div>
           <button class="primary" onclick="createCampaign()" style="height:36px;white-space:nowrap;">+ Create Campaign</button>
         </div>
-
         <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
-          <div class="fields-builder" id="fieldsBuilder"></div>
-          <button class="add-field-btn" onclick="addFieldRow()">+ Add Field</button>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
+          <div class="builder-area" id="newBuilderArea"></div>
+          <div class="builder-toolbar">
+            <button class="ghost" onclick="builderAddField('newBuilderArea')">+ Add Field</button>
+            <button class="ghost" onclick="builderAddGroup('newBuilderArea')">+ Add Group</button>
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- Campaign list -->
     <div class="config-section">
       <h2>Campaigns</h2>
       <div class="campaign-list" id="campaignList">
         <div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>
       </div>
     </div>
-
   </div>
 </div>
 
 <!-- ══ ENTRY MODAL ══ -->
-<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+<div class="modal-overlay" id="entryModalOverlay" onclick="handleEntryOverlayClick(event)">
   <div class="modal">
     <div class="modal-header">
-      <div>
-        <h2 id="modalTitle">—</h2>
-        <div class="body-meta" id="modalMeta">—</div>
-      </div>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div><h2 id="modalTitle">—</h2><div class="body-meta" id="modalMeta">—</div></div>
+      <button class="modal-close" onclick="closeEntryModal()">✕</button>
     </div>
     <div class="vehicle-info" id="vehicleInfo"></div>
     <div class="form-body" id="engFormBody"></div>
     <div class="modal-footer">
       <div class="status-wrap">Status: <span class="status-badge" id="modalStatus">—</span></div>
       <div style="display:flex;gap:8px;">
-        <button onclick="closeModal()">Cancel</button>
+        <button onclick="closeEntryModal()">Cancel</button>
         <button class="primary" onclick="saveEntry()">Save &amp; Sync</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EDIT CAMPAIGN MODAL ══ -->
+<div class="modal-overlay" id="editModalOverlay" onclick="handleEditOverlayClick(event)">
+  <div class="modal edit-modal">
+    <div class="modal-header">
+      <div><h2>Edit Campaign</h2></div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px;">
+      <input type="hidden" id="editCampId">
+      <div class="field-group">
+        <label>Campaign Name</label>
+        <input type="text" id="editCampName" style="width:100%;">
+      </div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
+        <div class="builder-area" id="editBuilderArea"></div>
+        <div class="builder-toolbar">
+          <button class="ghost" onclick="builderAddField('editBuilderArea')">+ Add Field</button>
+          <button class="ghost" onclick="builderAddGroup('editBuilderArea')">+ Add Group</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button onclick="closeEditModal()">Cancel</button>
+      <button class="primary" onclick="saveEditCampaign()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -431,48 +321,43 @@ input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
 
 <script>
 // ══ CONFIG ══
-const SUPABASE_URL = 'https://plekykkdvevqblvdayhm.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_bpd9qIOrqVxtgcfejgFriQ_QVLYWjuP';
-const BUCKET       = 'campaign-data';
+const SUPABASE_URL  = 'https://plekykkdvevqblvdayhm.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_bpd9qIOrqVxtgcfejgFriQ_QVLYWjuP';
+const BUCKET        = 'campaign-data';
 const CAMP_LIST_FILE = 'CampaignList.json';
-
-const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object`;
-const SB_HEADERS   = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+const STORAGE_BASE  = `${SUPABASE_URL}/storage/v1/object`;
+const SB_HEADERS    = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
 
 // ══ STATE ══
-let campaignList  = [];   // [{id, name, fileName, status:'open'|'closed', fields:[]}]
-let vehicles      = [];   // current campaign's vehicle records
+let campaignList   = [];
+let vehicles       = [];
 let activeCampaign = null;
-let currentIdx    = null;
-let toggleStates  = {};   // {fieldId: bool}
+let currentIdx     = null;
+let toggleStates   = {};
 
-// ══ SUPABASE HELPERS ══
+// ══ SUPABASE ══
 async function sbGet(path) {
   const res = await fetch(`${STORAGE_BASE}/${BUCKET}/${path}`, { headers: SB_HEADERS });
   if (res.status === 404 || res.status === 400) return null;
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  if (!res.ok) throw new Error(`GET ${path}: ${res.status}`);
   return res.json();
 }
-
 async function sbPut(path, data) {
   const res = await fetch(`${STORAGE_BASE}/${BUCKET}/${path}`, {
     method: 'POST',
     headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'x-upsert': 'true' },
     body: JSON.stringify(data, null, 2),
   });
-  if (!res.ok) throw new Error(`PUT ${path} failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`PUT ${path}: ${await res.text()}`);
 }
 
 // ══ INIT ══
 async function init() {
-  setTrackerLoading('Loading campaigns…');
+  setTrackerEmpty('Loading…', 'Connecting to Supabase.');
   try {
     const data = await sbGet(CAMP_LIST_FILE);
     campaignList = data && Array.isArray(data) ? data : [];
-  } catch(e) {
-    showToast('Could not load campaign list: ' + e.message, 'error');
-    campaignList = [];
-  }
+  } catch(e) { showToast('Could not load campaign list: ' + e.message, 'error'); campaignList = []; }
   refreshCampaignDropdown();
   renderCampaignList();
   setupDrop();
@@ -480,11 +365,11 @@ async function init() {
 }
 
 // ══ TABS ══
-function switchTab(tab) {
-  document.getElementById('pane-tracker').style.display = tab === 'tracker' ? 'block' : 'none';
-  document.getElementById('pane-config').style.display  = tab === 'config'  ? 'block' : 'none';
-  document.getElementById('tab-tracker').classList.toggle('active', tab === 'tracker');
-  document.getElementById('tab-config').classList.toggle('active',  tab === 'config');
+function switchTab(t) {
+  document.getElementById('pane-tracker').style.display = t==='tracker'?'block':'none';
+  document.getElementById('pane-config').style.display  = t==='config' ?'block':'none';
+  document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
+  document.getElementById('tab-config').classList.toggle('active',  t==='config');
 }
 
 // ══ CAMPAIGN DROPDOWN ══
@@ -503,525 +388,487 @@ function refreshCampaignDropdown() {
 
 async function onCampaignChange() {
   const id = document.getElementById('campaignSelect').value;
-  if (!id) {
-    activeCampaign = null;
-    vehicles = [];
-    document.getElementById('dropZone').classList.add('disabled');
-    document.getElementById('btnSync').disabled = true;
-    setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
-    return;
-  }
+  if (!id) { activeCampaign=null; vehicles=[]; document.getElementById('dropZone').classList.add('disabled'); document.getElementById('btnSync').disabled=true; setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.'); return; }
   activeCampaign = campaignList.find(c => c.id === id);
   document.getElementById('dropZone').classList.remove('disabled');
   setTrackerLoading(`Loading ${activeCampaign.name}…`);
   try {
     const data = await sbGet(activeCampaign.fileName);
     vehicles = data && Array.isArray(data) ? data : [];
-    if (vehicles.length === 0) {
-      setTrackerEmpty('No vehicles yet', 'Drop a fleet .xlsx file to import vehicles for this campaign.');
-    } else {
-      populateFilters();
-      renderGrid();
-    }
+    if (vehicles.length === 0) setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file to import vehicles.');
+    else { populateFilters(); renderGrid(); }
     document.getElementById('btnSync').disabled = false;
-  } catch(e) {
-    showToast('Failed to load campaign data: ' + e.message, 'error');
-    setTrackerEmpty('Load failed', e.message);
-  }
+  } catch(e) { showToast('Failed to load: '+e.message,'error'); setTrackerEmpty('Load failed',e.message); }
 }
 
-// ══ CONFIG — CREATE CAMPAIGN ══
-let fieldRowCount = 0;
+// ══ FIELD BUILDER (shared between new & edit) ══
+// Schema items are either:
+//   {kind:'field', id, label, type:'text'|'toggle'|'dropdown', options:[]}
+//   {kind:'group', id, title, fields:[{id,label,type,options}]}
 
-function addFieldRow(field) {
-  // field = {id, label, type, options} or null for blank
-  fieldRowCount++;
-  const id = field ? field.id : `field_${Date.now()}_${fieldRowCount}`;
-  const label = field ? field.label : '';
-  const type  = field ? field.type  : 'text';
-  const opts  = field && field.options ? field.options.join(', ') : '';
+function builderAddField(areaId, fieldData) {
+  const f = fieldData || { id:`f_${Date.now()}`, label:'', type:'text', options:[] };
+  const row = makeFieldRow(f, areaId);
+  document.getElementById(areaId).appendChild(row);
+}
 
+function builderAddGroup(areaId, groupData) {
+  const g = groupData || { id:`g_${Date.now()}`, title:'', fields:[] };
+  const block = makeGroupBlock(g, areaId);
+  document.getElementById(areaId).appendChild(block);
+}
+
+function makeFieldRow(f, areaId) {
   const row = document.createElement('div');
   row.className = 'field-row';
-  row.dataset.fieldId = id;
+  row.dataset.kind = 'field';
+  row.dataset.fieldId = f.id;
+  const optsHidden = f.type !== 'dropdown' ? 'display:none' : '';
   row.innerHTML = `
-    <input type="text" placeholder="Field label" value="${label}" class="field-label-input">
-    <select class="field-type-select" onchange="onFieldTypeChange(this)">
-      <option value="text"     ${type==='text'    ?'selected':''}>Text Input</option>
-      <option value="toggle"   ${type==='toggle'  ?'selected':''}>Yes/No Toggle</option>
-      <option value="dropdown" ${type==='dropdown'?'selected':''}>Dropdown</option>
+    <span class="drag-handle" draggable="true">⠿</span>
+    <input type="text" class="field-label-input" placeholder="Field label" value="${esc(f.label)}">
+    <select class="field-type-select" onchange="onTypeChange(this)">
+      <option value="text"     ${f.type==='text'    ?'selected':''}>Text</option>
+      <option value="toggle"   ${f.type==='toggle'  ?'selected':''}>Yes/No</option>
+      <option value="dropdown" ${f.type==='dropdown'?'selected':''}>Dropdown</option>
     </select>
-    <input type="text" class="field-opts-input dropdown-opts-input" placeholder="Option 1, Option 2…" value="${opts}" style="display:${type==='dropdown'?'block':'none'}">
+    <input type="text" class="opts-input" placeholder="Opt1, Opt2…" value="${esc((f.options||[]).join(', '))}" style="${optsHidden}">
     <button class="remove-btn" onclick="this.closest('.field-row').remove()" title="Remove">✕</button>
   `;
-  document.getElementById('fieldsBuilder').appendChild(row);
+  setupDragRow(row, areaId);
+  return row;
 }
 
-function onFieldTypeChange(sel) {
+function makeGroupBlock(g, areaId) {
+  const block = document.createElement('div');
+  block.className = 'group-block';
+  block.dataset.kind = 'group';
+  block.dataset.groupId = g.id;
+  block.innerHTML = `
+    <div class="group-block-header">
+      <span class="drag-handle" draggable="true">⠿</span>
+      <input type="text" class="group-title-input" placeholder="Group title…" value="${esc(g.title)}">
+      <button class="remove-btn" onclick="this.closest('.group-block').remove()" title="Remove group">✕</button>
+    </div>
+    <div class="group-fields"></div>
+    <button class="ghost group-add-btn" onclick="addFieldToGroup(this)">+ Add field to group</button>
+  `;
+  const fieldsEl = block.querySelector('.group-fields');
+  (g.fields||[]).forEach(f => fieldsEl.appendChild(makeFieldRow(f, null)));
+  setupDragRow(block, areaId);
+  return block;
+}
+
+function addFieldToGroup(btn) {
+  const fieldsEl = btn.closest('.group-block').querySelector('.group-fields');
+  fieldsEl.appendChild(makeFieldRow({ id:`f_${Date.now()}`, label:'', type:'text', options:[] }, null));
+}
+
+function onTypeChange(sel) {
   const row = sel.closest('.field-row');
-  const optsInput = row.querySelector('.field-opts-input');
-  optsInput.style.display = sel.value === 'dropdown' ? 'block' : 'none';
+  const opts = row.querySelector('.opts-input');
+  opts.style.display = sel.value === 'dropdown' ? '' : 'none';
 }
 
-function getFieldRows() {
-  return [...document.querySelectorAll('#fieldsBuilder .field-row')].map(row => {
-    const label = row.querySelector('.field-label-input').value.trim();
-    const type  = row.querySelector('.field-type-select').value;
-    const opts  = row.querySelector('.field-opts-input').value.trim();
-    return {
-      id:      row.dataset.fieldId,
-      label:   label || 'Unnamed Field',
-      type,
-      options: type === 'dropdown' ? opts.split(',').map(s => s.trim()).filter(Boolean) : [],
-    };
+// Drag-and-drop reordering within a builder area
+function setupDragRow(el, areaId) {
+  el.addEventListener('dragstart', e => { e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',''); el.classList.add('dragging'); window._dragEl=el; window._dragArea=areaId; });
+  el.addEventListener('dragend',   () => { el.classList.remove('dragging'); window._dragEl=null; });
+  el.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+  el.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation();
+    const src = window._dragEl;
+    if (!src || src === el) return;
+    const area = src.closest('.builder-area') || src.closest('.group-fields');
+    const dest = el.closest('.builder-area') || el.closest('.group-fields');
+    if (area && dest && area === dest) {
+      const items = [...dest.children];
+      const si = items.indexOf(src), di = items.indexOf(el);
+      if (si < di) dest.insertBefore(src, el.nextSibling);
+      else dest.insertBefore(src, el);
+    }
   });
 }
 
-async function createCampaign() {
-  const name = document.getElementById('newCampName').value.trim();
-  if (!name) { showToast('Please enter a campaign name', 'error'); return; }
-
-  const fields = getFieldRows();
-  const id = `camp_${Date.now()}`;
-  const safeName = name.replace(/[^a-zA-Z0-9_\-]/g, '_');
-  const fileName = `${safeName}-CampaignData.json`;
-
-  const campaign = { id, name, fileName, status: 'open', fields, createdAt: new Date().toISOString() };
-  campaignList.push(campaign);
-
-  try {
-    await sbPut(CAMP_LIST_FILE, campaignList);
-    // Initialise empty campaign data file
-    await sbPut(fileName, []);
-    showToast(`Campaign "${name}" created`, 'success');
-    document.getElementById('newCampName').value = '';
-    document.getElementById('fieldsBuilder').innerHTML = '';
-    fieldRowCount = 0;
-    refreshCampaignDropdown();
-    renderCampaignList();
-  } catch(e) {
-    campaignList.pop();
-    showToast('Create failed: ' + e.message, 'error');
-  }
+function readBuilderSchema(areaId) {
+  const items = [];
+  document.querySelectorAll(`#${areaId} > .field-row, #${areaId} > .group-block`).forEach(el => {
+    if (el.classList.contains('field-row')) {
+      items.push(readFieldRow(el));
+    } else if (el.classList.contains('group-block')) {
+      const fields = [];
+      el.querySelectorAll('.group-fields > .field-row').forEach(fr => fields.push(readFieldRow(fr)));
+      items.push({ kind:'group', id: el.dataset.groupId || `g_${Date.now()}`, title: el.querySelector('.group-title-input').value.trim(), fields });
+    }
+  });
+  return items;
 }
 
-// ══ CONFIG — CAMPAIGN LIST ══
+function readFieldRow(row) {
+  const label = row.querySelector('.field-label-input').value.trim();
+  const type  = row.querySelector('.field-type-select').value;
+  const opts  = row.querySelector('.opts-input').value.trim();
+  return { kind:'field', id: row.dataset.fieldId || `f_${Date.now()}`, label: label||'Unnamed', type, options: type==='dropdown' ? opts.split(',').map(s=>s.trim()).filter(Boolean) : [] };
+}
+
+function populateBuilder(areaId, schema) {
+  const area = document.getElementById(areaId);
+  area.innerHTML = '';
+  (schema||[]).forEach(item => {
+    if (item.kind === 'group') builderAddGroup(areaId, item);
+    else builderAddField(areaId, item);
+  });
+}
+
+// ══ CREATE CAMPAIGN ══
+async function createCampaign() {
+  const name = document.getElementById('newCampName').value.trim();
+  if (!name) { showToast('Please enter a campaign name','error'); return; }
+  const schema = readBuilderSchema('newBuilderArea');
+  const id = `camp_${Date.now()}`;
+  const safeName = name.replace(/[^a-zA-Z0-9_\-]/g,'_');
+  const fileName = `${safeName}-CampaignData.json`;
+  const campaign = { id, name, fileName, status:'open', schema, createdAt:new Date().toISOString() };
+  campaignList.push(campaign);
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    await sbPut(fileName, []);
+    showToast(`Campaign "${name}" created`,'success');
+    document.getElementById('newCampName').value='';
+    document.getElementById('newBuilderArea').innerHTML='';
+    refreshCampaignDropdown();
+    renderCampaignList();
+  } catch(e) { campaignList.pop(); showToast('Create failed: '+e.message,'error'); }
+}
+
+// ══ CAMPAIGN LIST ══
 function renderCampaignList() {
   const el = document.getElementById('campaignList');
-  if (campaignList.length === 0) {
-    el.innerHTML = '<div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>';
-    return;
-  }
-  el.innerHTML = '';
+  if (campaignList.length===0) { el.innerHTML='<div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>'; return; }
+  el.innerHTML='';
   campaignList.forEach(c => {
     const div = document.createElement('div');
-    div.className = 'campaign-item';
-    const fieldPreview = c.fields.length
-      ? c.fields.map(f => f.label).join(' · ')
-      : 'No custom fields';
-    div.innerHTML = `
-      <div style="flex:1;">
-        <div class="camp-name">${c.name}</div>
-        <div class="camp-fields-preview">${fieldPreview}</div>
-        <div class="camp-file">${c.fileName}</div>
+    div.className='campaign-item';
+    const preview = schemaPreview(c.schema);
+    div.innerHTML=`
+      <div class="campaign-item-header">
+        <div style="flex:1;">
+          <div class="camp-name">${esc(c.name)}</div>
+          <div class="camp-file">${c.fileName}</div>
+        </div>
+        <span class="camp-status-badge ${c.status}" onclick="event.stopPropagation();toggleCampaignStatus('${c.id}')">${c.status.toUpperCase()}</span>
+        <button class="ghost" style="font-size:12px;padding:5px 10px;" onclick="event.stopPropagation();openEditModal('${c.id}')">✏ Edit</button>
       </div>
-      <span class="camp-status-badge ${c.status}" onclick="toggleCampaignStatus('${c.id}')" title="Click to toggle">${c.status.toUpperCase()}</span>
+      ${preview ? `<div class="camp-preview">${preview}</div>` : ''}
     `;
     el.appendChild(div);
   });
 }
 
+function schemaPreview(schema) {
+  if (!schema || schema.length===0) return 'No fields defined';
+  return schema.map(item => item.kind==='group' ? `[${esc(item.title||'Group')}: ${item.fields.map(f=>esc(f.label)).join(', ')}]` : esc(item.label)).join(' · ');
+}
+
 async function toggleCampaignStatus(id) {
-  const c = campaignList.find(x => x.id === id);
+  const c = campaignList.find(x=>x.id===id);
   if (!c) return;
-  c.status = c.status === 'open' ? 'closed' : 'open';
+  c.status = c.status==='open'?'closed':'open';
   try {
     await sbPut(CAMP_LIST_FILE, campaignList);
-    renderCampaignList();
-    refreshCampaignDropdown();
-    showToast(`"${c.name}" marked as ${c.status}`, 'success');
-  } catch(e) {
-    c.status = c.status === 'open' ? 'closed' : 'open'; // revert
-    showToast('Update failed: ' + e.message, 'error');
-  }
+    renderCampaignList(); refreshCampaignDropdown();
+    showToast(`"${c.name}" marked as ${c.status}`,'success');
+  } catch(e) { c.status=c.status==='open'?'closed':'open'; showToast('Update failed: '+e.message,'error'); }
 }
 
-// ══ FLEET FILE PARSING ══
+// ══ EDIT CAMPAIGN MODAL ══
+function openEditModal(id) {
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('editCampId').value = id;
+  document.getElementById('editCampName').value = c.name;
+  populateBuilder('editBuilderArea', c.schema||[]);
+  document.getElementById('editModalOverlay').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('editModalOverlay').classList.remove('open');
+}
+
+function handleEditOverlayClick(e) {
+  if (e.target===document.getElementById('editModalOverlay')) closeEditModal();
+}
+
+async function saveEditCampaign() {
+  const id   = document.getElementById('editCampId').value;
+  const name = document.getElementById('editCampName').value.trim();
+  if (!name) { showToast('Campaign name cannot be empty','error'); return; }
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+  c.name   = name;
+  c.schema = readBuilderSchema('editBuilderArea');
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    showToast(`"${name}" updated`,'success');
+    refreshCampaignDropdown();
+    renderCampaignList();
+    closeEditModal();
+    // If this is the active campaign, refresh
+    if (activeCampaign && activeCampaign.id === id) activeCampaign = c;
+  } catch(e) { showToast('Save failed: '+e.message,'error'); }
+}
+
+// ══ FLEET PARSING ══
 function setupDrop() {
   const zone = document.getElementById('dropZone');
-  zone.addEventListener('click', () => { if (!zone.classList.contains('disabled')) document.getElementById('fileInput').click(); });
-  document.getElementById('fileInput').addEventListener('change', e => {
-    if (e.target.files[0]) handleXlsx(e.target.files[0]);
-    e.target.value = '';
-  });
-  zone.addEventListener('dragover', e => { e.preventDefault(); if (!zone.classList.contains('disabled')) zone.classList.add('drag-over'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault(); zone.classList.remove('drag-over');
-    if (zone.classList.contains('disabled')) return;
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.xlsx')) handleXlsx(file);
-    else showToast('Please drop a .xlsx file', 'error');
-  });
+  zone.addEventListener('click', ()=>{ if(!zone.classList.contains('disabled')) document.getElementById('fileInput').click(); });
+  document.getElementById('fileInput').addEventListener('change', e=>{ if(e.target.files[0]) handleXlsx(e.target.files[0]); e.target.value=''; });
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); if(!zone.classList.contains('disabled')) zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag-over'); if(zone.classList.contains('disabled')) return; const f=e.dataTransfer.files[0]; if(f&&f.name.endsWith('.xlsx')) handleXlsx(f); else showToast('Please drop a .xlsx file','error'); });
 }
 
-const MONTH_MAP = { january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12 };
+const MONTH_MAP={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
 
 function excelDateToString(val) {
   if (!val) return null;
-  const s = String(val).trim();
+  const s=String(val).trim();
   if (isNaN(s)) return s;
-  const serial = parseInt(s);
-  const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+  const utc=new Date(Date.UTC(1899,11,30)+parseInt(s)*86400000);
   return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth()+1).padStart(2,'0')}-${String(utc.getUTCDate()).padStart(2,'0')}`;
 }
 
-function parseRow(row) {
-  const prodStatus   = row[0]  ? String(row[0]).trim()  : '';
-  const shipStatus   = row[1]  ? String(row[1]).trim()  : '';
-  const drivelineSys = row[25] ? String(row[25]).trim() : '';
-  const filter = 'delivered to customer';
-  if (prodStatus.toLowerCase() !== filter && shipStatus.toLowerCase() !== filter) return null;
-  if (drivelineSys.toLowerCase() !== 'veds 1.5') return null;
-  const bodyNum = row[6] ? String(row[6]).trim() : null;
+function parseXlsxRow(row) {
+  const prod=row[0]?String(row[0]).trim():'', ship=row[1]?String(row[1]).trim():'';
+  const dl=row[25]?String(row[25]).trim():'';
+  const f='delivered to customer';
+  if (prod.toLowerCase()!==f && ship.toLowerCase()!==f) return null;
+  if (dl.toLowerCase()!=='veds 1.5') return null;
+  const bodyNum=row[6]?String(row[6]).trim():null;
   if (!bodyNum) return null;
-  const regMonthStr = row[16] ? String(row[16]).trim().toLowerCase() : null;
-  const regYear     = row[17] ? parseInt(row[17]) : null;
-  let regDate = null;
-  if (regYear && regMonthStr && MONTH_MAP[regMonthStr]) regDate = `${regYear}-${String(MONTH_MAP[regMonthStr]).padStart(2,'0')}`;
-  else if (regYear) regDate = String(regYear);
-  return {
-    body_number:       bodyNum,
-    production_status: prodStatus || null,
-    shipping_status:   shipStatus || null,
-    delivery_date:     excelDateToString(row[4]),
-    fleet_number:      row[7]  ? String(row[7]).trim()  : null,
-    account_name:      row[8]  ? String(row[8]).trim()  : null,
-    operator:          row[9]  ? String(row[9]).trim()  : null,
-    depot:             row[10] ? String(row[10]).trim() : null,
-    model:             row[11] ? String(row[11]).trim() : null,
-    deck_type:         row[14] ? String(row[14]).trim() : null,
-    registration:      row[15] ? String(row[15]).trim() : null,
-    reg_date:          regDate,
-    chassis_number:    row[18] ? String(row[18]).trim() : null,
-  };
+  const rms=row[16]?String(row[16]).trim().toLowerCase():null, ry=row[17]?parseInt(row[17]):null;
+  let rd=null;
+  if (ry&&rms&&MONTH_MAP[rms]) rd=`${ry}-${String(MONTH_MAP[rms]).padStart(2,'0')}`;
+  else if (ry) rd=String(ry);
+  return { body_number:bodyNum, production_status:prod||null, shipping_status:ship||null, delivery_date:excelDateToString(row[4]), fleet_number:row[7]?String(row[7]).trim():null, account_name:row[8]?String(row[8]).trim():null, operator:row[9]?String(row[9]).trim():null, depot:row[10]?String(row[10]).trim():null, model:row[11]?String(row[11]).trim():null, deck_type:row[14]?String(row[14]).trim():null, registration:row[15]?String(row[15]).trim():null, reg_date:rd, chassis_number:row[18]?String(row[18]).trim():null };
 }
 
-async function handleXlsx(file) {
-  if (!activeCampaign) { showToast('Select a campaign first', 'error'); return; }
-  showToast('Parsing fleet file…', 'info');
-  try {
-    const buffer = await file.arrayBuffer();
-    const wb = window.XLSX.read(buffer, { type: 'array' });
-    let wsName = wb.SheetNames.find(n => n === 'CM Warranty');
-    if (!wsName) wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'cm warranty');
-    if (!wsName) { showToast('Sheet not found. Available: ' + wb.SheetNames.join(', '), 'error'); return; }
-    const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header:1, defval:null });
-    const existingMap = {};
-    vehicles.forEach((v,i) => { existingMap[v.body_number] = i; });
-    let added = 0;
-    for (let r = 1; r < rows.length; r++) {
-      const parsed = parseRow(rows[r]);
-      if (!parsed) continue;
-      if (existingMap[parsed.body_number] !== undefined) {
-        const existing = vehicles[existingMap[parsed.body_number]];
-        const saved = { engineer_data: existing.engineer_data, update_status: existing.update_status };
-        Object.assign(existing, parsed, saved);
-      } else {
-        parsed.update_status = 'Pending';
-        parsed.engineer_data = buildEmptyEngineerData(activeCampaign.fields);
-        existingMap[parsed.body_number] = vehicles.length;
-        vehicles.push(parsed);
-        added++;
-      }
-    }
-    populateFilters();
-    renderGrid();
-    showToast(`Parsed: ${added} new vehicles added. Syncing…`, 'info');
-    await syncCampaignData(true);
-  } catch(e) {
-    showToast('Parse error: ' + e.message, 'error');
-    console.error(e);
-  }
-}
-
-function buildEmptyEngineerData(fields) {
-  const data = { submitted_date: null };
-  fields.forEach(f => {
-    data[f.id] = f.type === 'toggle' ? false : null;
-  });
+function buildEmptyEngineerData(schema) {
+  const data={submitted_date:null,notes:null};
+  flatFields(schema).forEach(f=>{ data[f.id]=f.type==='toggle'?false:null; });
   return data;
 }
 
-// ══ SYNC ══
-async function syncCampaignData(silent = false) {
-  if (!activeCampaign) return;
+function flatFields(schema) {
+  const all=[];
+  (schema||[]).forEach(item=>{ if(item.kind==='group') (item.fields||[]).forEach(f=>all.push(f)); else all.push(item); });
+  return all;
+}
+
+async function handleXlsx(file) {
+  if (!activeCampaign) { showToast('Select a campaign first','error'); return; }
+  showToast('Parsing fleet file…','info');
   try {
-    await sbPut(activeCampaign.fileName, vehicles);
-    if (!silent) showToast('Sync complete', 'success');
-    document.getElementById('btnSync').disabled = false;
-  } catch(e) {
-    showToast('Sync failed: ' + e.message, 'error');
-  }
+    const buf=await file.arrayBuffer();
+    const wb=window.XLSX.read(buf,{type:'array'});
+    let wsName=wb.SheetNames.find(n=>n==='CM Warranty');
+    if (!wsName) wsName=wb.SheetNames.find(n=>n.trim().toLowerCase()==='cm warranty');
+    if (!wsName) { showToast('Sheet not found. Available: '+wb.SheetNames.join(', '),'error'); return; }
+    const rows=window.XLSX.utils.sheet_to_json(wb.Sheets[wsName],{header:1,defval:null});
+    const existingMap={};
+    vehicles.forEach((v,i)=>{ existingMap[v.body_number]=i; });
+    let added=0;
+    for (let r=1;r<rows.length;r++) {
+      const p=parseXlsxRow(rows[r]); if(!p) continue;
+      if (existingMap[p.body_number]!==undefined) {
+        const ex=vehicles[existingMap[p.body_number]];
+        const saved={engineer_data:ex.engineer_data,update_status:ex.update_status};
+        Object.assign(ex,p,saved);
+      } else {
+        p.update_status='Pending';
+        p.engineer_data=buildEmptyEngineerData(activeCampaign.schema);
+        existingMap[p.body_number]=vehicles.length;
+        vehicles.push(p);
+        added++;
+      }
+    }
+    populateFilters(); renderGrid();
+    showToast(`${added} new vehicles added. Syncing…`,'info');
+    await syncCampaignData(true);
+  } catch(e) { showToast('Parse error: '+e.message,'error'); console.error(e); }
+}
+
+async function syncCampaignData(silent=false) {
+  if (!activeCampaign) return;
+  try { await sbPut(activeCampaign.fileName,vehicles); if(!silent) showToast('Sync complete','success'); document.getElementById('btnSync').disabled=false; }
+  catch(e) { showToast('Sync failed: '+e.message,'error'); }
 }
 
 // ══ FILTERS ══
 function populateFilters() {
-  populateSelect('operatorFilter', vehicles.map(v => v.account_name), '— All —');
-  populateSelect('depotFilter',    vehicles.map(v => v.depot),        '— All —', true);
+  populateSelect('operatorFilter',vehicles.map(v=>v.account_name),'— All —');
+  populateSelect('depotFilter',vehicles.map(v=>v.depot),'— All —',true);
 }
-
-function populateSelect(id, values, placeholder, includeUnknown = false) {
-  const sel = document.getElementById(id);
-  const cur = sel.value;
-  sel.innerHTML = `<option value="">${placeholder}</option>`;
-  const unique = [...new Set(values.filter(Boolean))].sort();
-  unique.forEach(v => {
-    const o = document.createElement('option');
-    o.value = v; o.textContent = v;
-    sel.appendChild(o);
-  });
-  if (includeUnknown && values.some(v => !v)) {
-    const o = document.createElement('option');
-    o.value = '__unknown__'; o.textContent = 'Unknown';
-    sel.appendChild(o);
-  }
-  sel.value = cur;
+function populateSelect(id,values,placeholder,includeUnknown=false) {
+  const sel=document.getElementById(id), cur=sel.value;
+  sel.innerHTML=`<option value="">${placeholder}</option>`;
+  [...new Set(values.filter(Boolean))].sort().forEach(v=>{ const o=document.createElement('option'); o.value=v;o.textContent=v; sel.appendChild(o); });
+  if (includeUnknown&&values.some(v=>!v)) { const o=document.createElement('option'); o.value='__unknown__';o.textContent='Unknown'; sel.appendChild(o); }
+  sel.value=cur;
 }
 
 // ══ GRID ══
 function renderGrid() {
-  if (vehicles.length === 0) { setTrackerEmpty('No vehicles yet', 'Drop a fleet .xlsx file to import vehicles.'); return; }
-  const opFilter  = document.getElementById('operatorFilter').value;
-  const depFilter = document.getElementById('depotFilter').value;
-  const stFilter  = document.getElementById('statusFilter').value;
-  const search    = document.getElementById('searchInput').value.trim().toUpperCase();
-
-  const filtered = vehicles.filter(v => {
-    if (opFilter && v.account_name !== opFilter) return false;
-    if (depFilter) {
-      if (depFilter === '__unknown__' && v.depot) return false;
-      if (depFilter !== '__unknown__' && v.depot !== depFilter) return false;
-    }
-    if (stFilter && v.update_status !== stFilter) return false;
-    if (search && !v.body_number.toUpperCase().includes(search)) return false;
+  if (vehicles.length===0) { setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file.'); return; }
+  const op=document.getElementById('operatorFilter').value, dep=document.getElementById('depotFilter').value;
+  const st=document.getElementById('statusFilter').value, q=document.getElementById('searchInput').value.trim().toUpperCase();
+  const filtered=vehicles.filter(v=>{
+    if(op&&v.account_name!==op) return false;
+    if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
+    if(st&&v.update_status!==st) return false;
+    if(q&&!v.body_number.toUpperCase().includes(q)) return false;
     return true;
   });
-
-  const groups = {};
-  filtered.forEach(v => { const g = v.account_name || 'Unknown'; if (!groups[g]) groups[g] = []; groups[g].push(v); });
-
-  const content = document.getElementById('trackerContent');
-  content.innerHTML = '';
-  const wrap = document.createElement('div');
-  wrap.className = 'grid-wrap';
-
-  if (filtered.length === 0) {
-    wrap.innerHTML = '<div class="empty-state"><strong>No vehicles match the current filters.</strong></div>';
-  } else {
-    Object.keys(groups).sort().forEach(grp => {
-      const section = document.createElement('div');
-      section.className = 'grid-section';
-      const h3 = document.createElement('h3');
-      h3.textContent = `${grp} (${groups[grp].length})`;
-      section.appendChild(h3);
-      const grid = document.createElement('div');
-      grid.className = 'vehicle-grid';
-      groups[grp].forEach(v => {
-        const idx = vehicles.indexOf(v);
-        const card = document.createElement('div');
-        card.className = `vehicle-card status-${v.update_status.replace(' ','-')}`;
-        card.textContent = v.body_number;
-        card.title = v.update_status;
-        card.onclick = () => openModal(idx);
-        grid.appendChild(card);
-      });
-      section.appendChild(grid);
-      wrap.appendChild(section);
+  const groups={};
+  filtered.forEach(v=>{ const g=v.account_name||'Unknown'; if(!groups[g]) groups[g]=[]; groups[g].push(v); });
+  const content=document.getElementById('trackerContent');
+  content.innerHTML='';
+  const wrap=document.createElement('div'); wrap.className='grid-wrap';
+  if(filtered.length===0) { wrap.innerHTML='<div class="empty-state"><strong>No vehicles match filters.</strong></div>'; }
+  else {
+    Object.keys(groups).sort().forEach(grp=>{
+      const sec=document.createElement('div'); sec.className='grid-section';
+      const h3=document.createElement('h3'); h3.textContent=`${grp} (${groups[grp].length})`; sec.appendChild(h3);
+      const grid=document.createElement('div'); grid.className='vehicle-grid';
+      groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; card.textContent=v.body_number; card.title=v.update_status; card.onclick=()=>openEntryModal(idx); grid.appendChild(card); });
+      sec.appendChild(grid); wrap.appendChild(sec);
     });
   }
   content.appendChild(wrap);
-
-  const counts = { 'Pending':0, 'In Progress':0, 'Complete':0 };
-  filtered.forEach(v => { if (counts[v.update_status] !== undefined) counts[v.update_status]++; });
-  document.getElementById('statPending').textContent  = counts['Pending'];
-  document.getElementById('statProgress').textContent = counts['In Progress'];
-  document.getElementById('statComplete').textContent = counts['Complete'];
-  document.getElementById('statTotal').textContent    = filtered.length;
+  const counts={'Pending':0,'In Progress':0,'Complete':0};
+  filtered.forEach(v=>{ if(counts[v.update_status]!==undefined) counts[v.update_status]++; });
+  document.getElementById('statPending').textContent=counts['Pending'];
+  document.getElementById('statProgress').textContent=counts['In Progress'];
+  document.getElementById('statComplete').textContent=counts['Complete'];
+  document.getElementById('statTotal').textContent=filtered.length;
 }
 
-// ══ MODAL ══
-function openModal(idx) {
-  currentIdx = idx;
-  const v = vehicles[idx];
-  const fields = activeCampaign ? activeCampaign.fields : [];
+// ══ ENTRY MODAL ══
+function openEntryModal(idx) {
+  currentIdx=idx;
+  const v=vehicles[idx];
+  const schema=activeCampaign?activeCampaign.schema:[];
+  const fields=flatFields(schema);
+  toggleStates={};
+  fields.filter(f=>f.type==='toggle').forEach(f=>{ toggleStates[f.id]=v.engineer_data[f.id]||false; });
+  document.getElementById('modalTitle').textContent='Body '+v.body_number;
+  document.getElementById('modalMeta').textContent=[v.model,v.deck_type,v.registration||'No Reg'].filter(Boolean).join(' · ');
+  const infoFields=[['Account',v.account_name],['Operator',v.operator],['Depot',v.depot],['Fleet No.',v.fleet_number],['Chassis',v.chassis_number],['Reg Date',v.reg_date],['Production',v.production_status],['Delivery',v.delivery_date||'—']];
+  document.getElementById('vehicleInfo').innerHTML=infoFields.map(([l,val])=>`<div class="info-item"><div class="lbl">${l}</div><div class="val">${val||'—'}</div></div>`).join('');
 
-  toggleStates = {};
-  fields.filter(f => f.type === 'toggle').forEach(f => {
-    toggleStates[f.id] = v.engineer_data[f.id] || false;
-  });
+  const formBody=document.getElementById('engFormBody');
+  formBody.innerHTML='';
 
-  document.getElementById('modalTitle').textContent = 'Body ' + v.body_number;
-  document.getElementById('modalMeta').textContent  = [v.model, v.deck_type, v.registration || 'No Reg'].filter(Boolean).join(' · ');
-
-  const infoFields = [
-    ['Account', v.account_name], ['Operator', v.operator],
-    ['Depot',   v.depot],        ['Fleet No.', v.fleet_number],
-    ['Chassis', v.chassis_number],['Reg Date', v.reg_date],
-    ['Production', v.production_status], ['Delivery', v.delivery_date || '—'],
-  ];
-  document.getElementById('vehicleInfo').innerHTML = infoFields.map(([l,val]) =>
-    `<div class="info-item"><div class="lbl">${l}</div><div class="val">${val||'—'}</div></div>`
-  ).join('');
-
-  // Build dynamic engineer form
-  const formBody = document.getElementById('engFormBody');
-  formBody.innerHTML = '';
-  if (fields.length === 0) {
-    formBody.innerHTML = '<div style="color:var(--muted);font-size:13px;">This campaign has no engineer fields defined.</div>';
+  if (schema.length===0) {
+    formBody.innerHTML='<div style="color:var(--muted);font-size:13px;">No engineer fields defined for this campaign.</div>';
   } else {
-    fields.forEach(f => {
-      const wrap = document.createElement('div');
-      wrap.className = 'eng-field';
-      const val = v.engineer_data[f.id];
-      if (f.type === 'text') {
-        wrap.innerHTML = `
-          <label>${f.label}</label>
-          <input type="text" id="ef_${f.id}" value="${val||''}" placeholder="${f.label}…">`;
-      } else if (f.type === 'toggle') {
-        const on = toggleStates[f.id];
-        wrap.innerHTML = `
-          <div class="toggle-field ${on?'on':''}" id="tf_${f.id}" onclick="toggleEngField('${f.id}')">
-            <span class="tl">${f.label}</span>
-            <span class="ts" id="ts_${f.id}">${on?'Y':'N'}</span>
-          </div>`;
-      } else if (f.type === 'dropdown') {
-        const opts = (f.options||[]).map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
-        wrap.innerHTML = `
-          <label>${f.label}</label>
-          <select id="ef_${f.id}"><option value="">— Select —</option>${opts}</select>`;
+    schema.forEach(item=>{
+      if (item.kind==='group') {
+        const grpDiv=document.createElement('div'); grpDiv.className='eng-group';
+        const title=document.createElement('div'); title.className='eng-group-title'; title.textContent=item.title||'Group';
+        grpDiv.appendChild(title);
+        (item.fields||[]).forEach(f=>{ grpDiv.appendChild(makeEngField(f,v.engineer_data)); });
+        formBody.appendChild(grpDiv);
+      } else {
+        formBody.appendChild(makeEngField(item,v.engineer_data));
       }
-      formBody.appendChild(wrap);
     });
     // Notes always last
-    const notesWrap = document.createElement('div');
-    notesWrap.className = 'eng-field';
-    notesWrap.innerHTML = `<label>Notes</label><textarea id="ef_notes" placeholder="Any additional notes…">${v.engineer_data.notes||''}</textarea>`;
-    formBody.appendChild(notesWrap);
+    const nw=document.createElement('div'); nw.className='eng-field';
+    nw.innerHTML=`<label>Notes</label><textarea id="ef_notes" placeholder="Any additional notes…">${esc(v.engineer_data.notes||'')}</textarea>`;
+    formBody.appendChild(nw);
   }
 
   updateModalStatus();
-  document.getElementById('modalOverlay').classList.add('open');
-
-  // Attach live status update to text/select inputs
-  fields.filter(f => f.type !== 'toggle').forEach(f => {
-    const el = document.getElementById('ef_' + f.id);
-    if (el) el.addEventListener('input', updateModalStatus);
-  });
+  document.getElementById('entryModalOverlay').classList.add('open');
+  fields.filter(f=>f.type!=='toggle').forEach(f=>{ const el=document.getElementById('ef_'+f.id); if(el) el.addEventListener('input',updateModalStatus); });
 }
 
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
-  currentIdx = null;
+function makeEngField(f, ed) {
+  const wrap=document.createElement('div'); wrap.className='eng-field';
+  const val=ed[f.id];
+  if (f.type==='text') {
+    wrap.innerHTML=`<label>${esc(f.label)}</label><input type="text" id="ef_${f.id}" value="${esc(val||'')}" placeholder="${esc(f.label)}…">`;
+  } else if (f.type==='toggle') {
+    const on=toggleStates[f.id];
+    wrap.innerHTML=`<div class="toggle-field ${on?'on':''}" id="tf_${f.id}" onclick="toggleEngField('${f.id}')"><span class="tl">${esc(f.label)}</span><span class="ts" id="ts_${f.id}">${on?'Y':'N'}</span></div>`;
+  } else if (f.type==='dropdown') {
+    const opts=(f.options||[]).map(o=>`<option value="${esc(o)}" ${val===o?'selected':''}>${esc(o)}</option>`).join('');
+    wrap.innerHTML=`<label>${esc(f.label)}</label><select id="ef_${f.id}"><option value="">— Select —</option>${opts}</select>`;
+  }
+  return wrap;
 }
 
-function handleOverlayClick(e) {
-  if (e.target === document.getElementById('modalOverlay')) closeModal();
-}
+function closeEntryModal() { document.getElementById('entryModalOverlay').classList.remove('open'); currentIdx=null; }
+function handleEntryOverlayClick(e) { if(e.target===document.getElementById('entryModalOverlay')) closeEntryModal(); }
 
-function toggleEngField(fieldId) {
-  toggleStates[fieldId] = !toggleStates[fieldId];
-  const on = toggleStates[fieldId];
-  const tf = document.getElementById('tf_' + fieldId);
-  const ts = document.getElementById('ts_' + fieldId);
-  if (tf) { tf.classList.toggle('on', on); }
-  if (ts) { ts.textContent = on ? 'Y' : 'N'; }
+function toggleEngField(fid) {
+  toggleStates[fid]=!toggleStates[fid];
+  const on=toggleStates[fid];
+  const tf=document.getElementById('tf_'+fid), ts=document.getElementById('ts_'+fid);
+  if(tf) tf.classList.toggle('on',on);
+  if(ts) ts.textContent=on?'Y':'N';
   updateModalStatus();
 }
 
 function computeStatus() {
-  if (!activeCampaign) return 'Pending';
-  const fields = activeCampaign.fields;
-  if (fields.length === 0) return 'Pending';
-
-  let allDone = true;
-  let anyTouched = false;
-
-  fields.forEach(f => {
-    if (f.type === 'toggle') {
-      if (!toggleStates[f.id]) allDone = false;
-      else anyTouched = true;
-    } else {
-      const el = document.getElementById('ef_' + f.id);
-      const val = el ? el.value.trim() : '';
-      if (!val) allDone = false;
-      else anyTouched = true;
-    }
+  if(!activeCampaign) return 'Pending';
+  const fields=flatFields(activeCampaign.schema||[]);
+  if(fields.length===0) return 'Pending';
+  let allDone=true, anyTouched=false;
+  fields.forEach(f=>{
+    if(f.type==='toggle') { if(!toggleStates[f.id]) allDone=false; else anyTouched=true; }
+    else { const el=document.getElementById('ef_'+f.id); const v=el?el.value.trim():''; if(!v) allDone=false; else anyTouched=true; }
   });
-
-  if (allDone) return 'Complete';
-  if (anyTouched) return 'In Progress';
+  if(allDone) return 'Complete';
+  if(anyTouched) return 'In Progress';
   return 'Pending';
 }
 
 function updateModalStatus() {
-  const status = computeStatus();
-  const el = document.getElementById('modalStatus');
-  el.className = 'status-badge ' + status.replace(' ','-');
-  el.textContent = status;
+  const s=computeStatus(); const el=document.getElementById('modalStatus');
+  el.className='status-badge '+s.replace(' ','-'); el.textContent=s;
 }
 
 async function saveEntry() {
-  if (currentIdx === null || !activeCampaign) return;
-  const v = vehicles[currentIdx];
-  const fields = activeCampaign.fields;
-  const today = new Date();
-  const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-
-  const edData = { submitted_date: dateStr, notes: null };
-  fields.forEach(f => {
-    if (f.type === 'toggle') {
-      edData[f.id] = toggleStates[f.id] || false;
-    } else {
-      const el = document.getElementById('ef_' + f.id);
-      edData[f.id] = el ? (el.value.trim() || null) : null;
-    }
+  if(currentIdx===null||!activeCampaign) return;
+  const v=vehicles[currentIdx];
+  const today=new Date();
+  const ds=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const ed={submitted_date:ds,notes:null};
+  flatFields(activeCampaign.schema||[]).forEach(f=>{
+    if(f.type==='toggle') ed[f.id]=toggleStates[f.id]||false;
+    else { const el=document.getElementById('ef_'+f.id); ed[f.id]=el?(el.value.trim()||null):null; }
   });
-  const notesEl = document.getElementById('ef_notes');
-  if (notesEl) edData.notes = notesEl.value.trim() || null;
-
-  v.engineer_data  = edData;
-  v.update_status  = computeStatus();
-
-  closeModal();
-  renderGrid();
-  showToast('Saving…', 'info');
+  const ne=document.getElementById('ef_notes'); if(ne) ed.notes=ne.value.trim()||null;
+  v.engineer_data=ed; v.update_status=computeStatus();
+  closeEntryModal(); renderGrid();
+  showToast('Saving…','info');
   await syncCampaignData(true);
-  showToast(`Saved — ${v.body_number} → ${v.update_status}`, 'success');
+  showToast(`Saved — ${v.body_number} → ${v.update_status}`,'success');
 }
 
-// ══ UI HELPERS ══
-function setTrackerLoading(msg) {
-  document.getElementById('trackerContent').innerHTML =
-    `<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`;
-}
+// ══ HELPERS ══
+function setTrackerLoading(msg) { document.getElementById('trackerContent').innerHTML=`<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`; }
+function setTrackerEmpty(t,m)   { document.getElementById('trackerContent').innerHTML=`<div class="empty-state"><strong>${t}</strong>${m}</div>`; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function setTrackerEmpty(title, msg) {
-  document.getElementById('trackerContent').innerHTML =
-    `<div class="empty-state"><strong>${title}</strong>${msg}</div>`;
-}
-
-// ══ TOAST ══
 let toastTimer;
-function showToast(msg, type='info') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = `toast ${type} show`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+function showToast(msg,type='info') {
+  const el=document.getElementById('toast'); el.textContent=msg; el.className=`toast ${type} show`;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
 }
 
-// ══ START ══
 init();
 </script>
 </body>
