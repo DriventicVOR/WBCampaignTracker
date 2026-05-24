@@ -189,7 +189,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.1.1</div>
+  <div class="version-badge">v2.1.2</div>
   <div class="spacer"></div>
 </header>
 
@@ -364,6 +364,32 @@ async function sbPut(path, data) {
   if (!res.ok) throw new Error(`PUT ${path}: ${await res.text()}`);
 }
 
+// ══ MIGRATION: convert old `fields` format to new `schema` format ══
+function migrateCampaign(c) {
+  // Already has schema — check items have kind set
+  if (c.schema && Array.isArray(c.schema) && c.schema.length > 0) {
+    c.schema = c.schema.map(item => {
+      if (!item.kind) item.kind = 'field'; // ensure kind is set
+      return item;
+    });
+    return c;
+  }
+  // Old format: c.fields = [{id,label,type,options}]
+  if (c.fields && Array.isArray(c.fields)) {
+    c.schema = c.fields.map(f => ({
+      kind: 'field',
+      id:   f.id    || `f_${Math.random().toString(36).slice(2)}`,
+      label: f.label || '',
+      type:  f.type  || 'text',
+      options: f.options || [],
+    }));
+    delete c.fields;
+  } else {
+    c.schema = [];
+  }
+  return c;
+}
+
 // ══ INIT ══
 async function init() {
   setTrackerEmpty('Loading…', 'Connecting to Supabase.');
@@ -371,6 +397,19 @@ async function init() {
     const data = await sbGet(CAMP_LIST_FILE);
     campaignList = data && Array.isArray(data) ? data : [];
   } catch(e) { showToast('Could not load campaign list: ' + e.message, 'error'); campaignList = []; }
+
+  // Migrate any old-format campaigns
+  let needsSave = false;
+  campaignList = campaignList.map(c => {
+    const before = JSON.stringify(c);
+    const migrated = migrateCampaign(c);
+    if (JSON.stringify(migrated) !== before) needsSave = true;
+    return migrated;
+  });
+  if (needsSave) {
+    try { await sbPut(CAMP_LIST_FILE, campaignList); } catch(e) { console.warn('Migration save failed:', e); }
+  }
+
   refreshCampaignDropdown();
   renderCampaignList();
   setupDrop();
