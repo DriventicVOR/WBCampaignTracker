@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.3</div>
+  <div class="version-badge">v2.4.4</div>
   <div class="spacer"></div>
 </header>
 
@@ -1438,11 +1438,13 @@ function showToast(msg,type='info') {
 // ══ GRAPH ══
 let chartInstance = null;
 
-// Choose the smallest step from the allowed set such that total / step <= 20 ticks
+// Choose the smallest step from the allowed set such that:
+//   ceil(total / step) <= 20  AND  step * ceil(total / step) >= total
 function yTickStep(total) {
   const allowed = [1, 2, 5, 10, 20, 50, 100, 200, 500];
   for (const step of allowed) {
-    if (Math.ceil(total / step) <= 20) return step;
+    const ticks = Math.ceil(total / step);
+    if (ticks <= 20 && step * ticks >= total) return step;
   }
   return 500;
 }
