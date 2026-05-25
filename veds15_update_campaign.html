@@ -204,7 +204,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.3.0</div>
+  <div class="version-badge">v2.3.1</div>
   <div class="spacer"></div>
 </header>
 
@@ -226,7 +226,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="drop-zone disabled" id="dropZone">⬆ Drop fleet .xlsx here</div>
     <input type="file" id="fileInput" accept=".xlsx" style="display:none">
     <div class="spacer" style="flex:1"></div>
-    <button id="btnSync" class="primary" onclick="syncCampaignData()" disabled>☁ Sync</button>
+    <button id="btnRefresh" class="ghost" onclick="refreshCampaignData()" disabled title="Pull latest data from Supabase">↻ Refresh</button>
   </div>
   <div class="stats-bar">
     <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">0</strong></div>
@@ -502,7 +502,7 @@ function refreshCampaignDropdown() {
 
 async function onCampaignChange() {
   const id = document.getElementById('campaignSelect').value;
-  if (!id) { activeCampaign=null; vehicles=[]; document.getElementById('dropZone').classList.add('disabled'); document.getElementById('btnSync').disabled=true; resetStats(); setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.'); return; }
+  if (!id) { activeCampaign=null; vehicles=[]; document.getElementById('dropZone').classList.add('disabled'); document.getElementById('btnRefresh').disabled=true; resetStats(); setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.'); return; }
   activeCampaign = campaignList.find(c => c.id === id);
   document.getElementById('dropZone').classList.remove('disabled');
   setTrackerLoading(`Loading ${activeCampaign.name}…`);
@@ -511,7 +511,7 @@ async function onCampaignChange() {
     vehicles = data && Array.isArray(data) ? data : [];
     if (vehicles.length === 0) setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file to import vehicles.');
     else { populateFilters(); renderGrid(); }
-    document.getElementById('btnSync').disabled = false;
+    document.getElementById('btnRefresh').disabled = false;
   } catch(e) { showToast('Failed to load: '+e.message,'error'); setTrackerEmpty('Load failed',e.message); }
 }
 
@@ -940,7 +940,7 @@ async function deleteCampaign(id) {
           activeCampaign = null;
           vehicles = [];
           document.getElementById('dropZone').classList.add('disabled');
-          document.getElementById('btnSync').disabled = true;
+          document.getElementById('btnRefresh').disabled = true;
           resetStats();
           setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
         }
@@ -1112,8 +1112,31 @@ async function handleXlsx(file) {
 
 async function syncCampaignData(silent=false) {
   if (!activeCampaign) return;
-  try { await sbPut(activeCampaign.fileName,vehicles); if(!silent) showToast('Sync complete','success'); document.getElementById('btnSync').disabled=false; }
+  try { await sbPut(activeCampaign.fileName, vehicles); if(!silent) showToast('Sync complete','success'); }
   catch(e) { showToast('Sync failed: '+e.message,'error'); }
+}
+
+async function refreshCampaignData() {
+  if (!activeCampaign) return;
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.textContent = '\u21bb Refreshing…';
+  try {
+    const data = await sbGet(activeCampaign.fileName);
+    vehicles = data && Array.isArray(data) ? data : [];
+    if (vehicles.length === 0) {
+      setTrackerEmpty('No vehicles yet', 'Drop a fleet .xlsx file to import vehicles.');
+    } else {
+      populateFilters();
+      renderGrid();
+    }
+    showToast('Refreshed — ' + vehicles.length + ' vehicles loaded', 'success');
+  } catch(e) {
+    showToast('Refresh failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\u21bb Refresh';
+  }
 }
 
 // ══ FILTERS ══
