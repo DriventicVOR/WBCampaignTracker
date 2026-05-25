@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.0</div>
+  <div class="version-badge">v2.4.2</div>
   <div class="spacer"></div>
 </header>
 
@@ -1201,11 +1201,21 @@ function matchesSearch(v, q) {
 }
 
 // Filter helper — apply all filters except the one named in 'except'
+// prefix='' uses tracker filter IDs; prefix='graph' uses graph filter IDs
+function elVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+
 function getFilteredExcept(except, prefix='') {
-  const op  = except==='op'  ? '' : document.getElementById(prefix+'operatorFilter').value;
-  const dep = except==='dep' ? '' : document.getElementById(prefix+'depotFilter').value;
-  const st  = except==='st'  ? '' : (document.getElementById(prefix+'statusFilter') ? document.getElementById(prefix+'statusFilter').value : '');
-  const q   = except==='q'   ? '' : (document.getElementById(prefix+'searchInput') ? document.getElementById(prefix+'searchInput').value.trim().toUpperCase() : '');
+  const P = prefix ? (prefix === 'graph' ? 'graph' : prefix) : '';
+  const opId  = P ? 'graphOperatorFilter' : 'operatorFilter';
+  const depId = P ? 'graphDepotFilter'    : 'depotFilter';
+  const stId  = P ? null                  : 'statusFilter';
+  const qId   = P ? 'graphSearchInput'    : 'searchInput';
+
+  const op  = except==='op'  ? '' : elVal(opId);
+  const dep = except==='dep' ? '' : elVal(depId);
+  const st  = except==='st'  ? '' : (stId ? elVal(stId) : '');
+  const q   = except==='q'   ? '' : elVal(qId).trim().toUpperCase();
+
   return vehicles.filter(v=>{
     if(op && v.account_name!==op) return false;
     if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
@@ -1457,33 +1467,32 @@ function renderGraph() {
   });
   updateGraphContextFilters();
 
-  const dated = filtered.filter(v => v.engineer_data && v.engineer_data.submitted_date);
-  if (dated.length === 0) {
-    noMsg.style.display   = 'none';
-    emptyEl.style.display = 'block';
-    canvas.style.display  = 'none';
-    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-    return;
-  }
-
   noMsg.style.display   = 'none';
   emptyEl.style.display = 'none';
   canvas.style.display  = 'block';
 
-  // Get sorted unique dates across filtered set
-  const allDates = [...new Set(dated.map(v => v.engineer_data.submitted_date))].sort();
+  const total = filtered.length;
 
+  // Collect all unique submitted dates; add today so the current state is always plotted
+  const today = new Date().toISOString().slice(0,10);
+  const dateSet = new Set([today]);
+  filtered.forEach(v => {
+    if (v.engineer_data && v.engineer_data.submitted_date) dateSet.add(v.engineer_data.submitted_date);
+  });
+  const allDates = [...dateSet].sort();
+
+  // If the only date is today and no vehicle has any submitted_date, show a single-point snapshot
   const labels      = [];
   const pendingPts  = [];
   const progressPts = [];
   const completePts = [];
-  const total = filtered.length;
 
   allDates.forEach(date => {
     labels.push(date);
     let inProg = 0, comp = 0;
     filtered.forEach(v => {
       const sd = v.engineer_data && v.engineer_data.submitted_date;
+      // A vehicle counts toward inProg/comp on the date it was submitted (or any later date)
       if (sd && sd <= date) {
         if (v.update_status === 'In Progress') inProg++;
         else if (v.update_status === 'Complete') comp++;
