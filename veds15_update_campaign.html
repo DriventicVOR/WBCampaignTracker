@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.2</div>
+  <div class="version-badge">v2.4.3</div>
   <div class="spacer"></div>
 </header>
 
@@ -1438,6 +1438,15 @@ function showToast(msg,type='info') {
 // ══ GRAPH ══
 let chartInstance = null;
 
+// Choose the smallest step from the allowed set such that total / step <= 20 ticks
+function yTickStep(total) {
+  const allowed = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  for (const step of allowed) {
+    if (Math.ceil(total / step) <= 20) return step;
+  }
+  return 500;
+}
+
 function renderGraph() {
   const noMsg   = document.getElementById('graphNoCampaign');
   const emptyEl = document.getElementById('graphEmpty');
@@ -1582,7 +1591,7 @@ function renderGraph() {
         y: {
           beginAtZero: true,
           max: total,
-          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, stepSize: 1 },
+          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, stepSize: yTickStep(total) },
           grid:  { color: 'rgba(48,54,61,0.6)' },
         },
       },
