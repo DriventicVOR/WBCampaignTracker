@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.4</div>
+  <div class="version-badge">v2.4.5</div>
   <div class="spacer"></div>
 </header>
 
@@ -1438,15 +1438,15 @@ function showToast(msg,type='info') {
 // ══ GRAPH ══
 let chartInstance = null;
 
-// Choose the smallest step from the allowed set such that:
-//   ceil(total / step) <= 20  AND  step * ceil(total / step) >= total
-function yTickStep(total) {
+// Choose the smallest step from the allowed set such that ceil(maxVal / step) <= 20.
+// Returns { step, yMax } where yMax = step * ceil(maxVal / step).
+function yAxisConfig(maxVal) {
   const allowed = [1, 2, 5, 10, 20, 50, 100, 200, 500];
   for (const step of allowed) {
-    const ticks = Math.ceil(total / step);
-    if (ticks <= 20 && step * ticks >= total) return step;
+    const ticks = Math.ceil(maxVal / step);
+    if (ticks <= 20) return { step, yMax: step * ticks };
   }
-  return 500;
+  return { step: 500, yMax: Math.ceil(maxVal / 500) * 500 };
 }
 
 function renderGraph() {
@@ -1513,6 +1513,15 @@ function renderGraph() {
     progressPts.push(inProg);
     pendingPts.push(total - inProg - comp);
   });
+
+  // Find the highest individual series value across all data points
+  const maxSeriesVal = Math.max(
+    ...pendingPts,
+    ...progressPts.map((v,i) => v + completePts[i]),
+    ...completePts,
+    1
+  );
+  const { step: yStep, yMax } = yAxisConfig(maxSeriesVal);
 
   if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
   // Force canvas resize before drawing
@@ -1592,8 +1601,8 @@ function renderGraph() {
         },
         y: {
           beginAtZero: true,
-          max: total,
-          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, stepSize: yTickStep(total) },
+          max: yMax,
+          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, stepSize: yStep },
           grid:  { color: 'rgba(48,54,61,0.6)' },
         },
       },
