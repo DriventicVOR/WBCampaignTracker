@@ -227,7 +227,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.2</div>
+  <div class="version-badge">v2.5.3</div>
   <div class="spacer"></div>
 </header>
 
@@ -1681,29 +1681,48 @@ function setupQrInput() {
   input.addEventListener('change', async () => {
     const file = input.files[0];
     if (!file || !_qrTargetId) return;
+    showToast('Decoding image…', 'info');
 
-    const bitmap = await createImageBitmap(file);
-    const canvas = document.getElementById('qrCanvas');
-    canvas.width  = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(bitmap, 0, 0);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.getElementById('qrCanvas');
+      const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
-    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: 'attemptBoth',
-    });
+      // Try decoding at multiple scales — large images often cause jsQR to miss codes.
+      // We try from largest (capped at 1024px) down to 400px.
+      const MAX_SIZES = [1024, 800, 600, 400];
+      let result = null;
 
-    if (code && code.data) {
-      const el = document.getElementById(_qrTargetId);
-      if (el) {
-        el.value = code.data;
-        el.dispatchEvent(new Event('input'));
-        updateModalStatus();
+      for (const maxDim of MAX_SIZES) {
+        const scale  = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+        const w = Math.round(bitmap.width  * scale);
+        const h = Math.round(bitmap.height * scale);
+        canvas.width  = w;
+        canvas.height = h;
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+
+        // Try all inversion modes at each scale
+        for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
+          const code = jsQR(imageData.data, w, h, { inversionAttempts: inv });
+          if (code && code.data) { result = code.data; break; }
+        }
+        if (result) break;
       }
-      showToast('QR scanned: ' + code.data, 'success');
-    } else {
-      showToast('No QR code found in image — try again', 'error');
+
+      if (result) {
+        const el = document.getElementById(_qrTargetId);
+        if (el) {
+          el.value = result;
+          el.dispatchEvent(new Event('input'));
+          updateModalStatus();
+        }
+        showToast('QR scanned: ' + result, 'success');
+      } else {
+        showToast('No QR code found — ensure the code is clear and well-lit, then try again', 'error');
+      }
+    } catch(e) {
+      showToast('Decode error: ' + e.message, 'error');
     }
     closeQrScanner();
   });
