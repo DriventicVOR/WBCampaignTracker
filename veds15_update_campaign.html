@@ -70,13 +70,9 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .search-input{font-family:'Share Tech Mono',monospace;font-size:13px;}
 @media(max-width:600px){
   .filter-bar{padding:8px 12px;gap:6px;}
-  .filter-item{flex:1 1 100%;}
+  .filter-item{flex:1 1 100%;display:grid;grid-template-columns:80px 1fr;align-items:center;}
+  .filter-item label{width:80px;white-space:nowrap;}
   .filter-item select,.filter-item input{flex:1;min-width:0;width:100%;}
-}
-@media(max-width:500px){
-  .filter-item{display:grid;grid-template-columns:80px 1fr;align-items:center;}
-  .filter-item label{width:80px;}
-  .filter-item select,.filter-item input{width:100%;}
 }
 .grid-wrap{padding:20px 24px;overflow-y:auto;flex:1;}
 .grid-section{margin-bottom:28px;}
@@ -216,7 +212,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.3.5</div>
+  <div class="version-badge">v2.3.6</div>
   <div class="spacer"></div>
 </header>
 
