@@ -212,7 +212,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.3.6</div>
+  <div class="version-badge">v2.3.7</div>
   <div class="spacer"></div>
 </header>
 
@@ -285,7 +285,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
       <label>Search</label>
       <input class="search-input" id="graphSearchInput" type="text" placeholder="Body #..." oninput="renderGraph()">
     </div>
-    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;">— Select a campaign to view graph —</span>
+    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;display:none;">— Select a campaign to view graph —</span>
   </div>
   <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
     <canvas id="progressChart"></canvas>
@@ -1421,7 +1421,7 @@ function renderGraph() {
   const canvas  = document.getElementById('progressChart');
 
   if (!activeCampaign || vehicles.length === 0) {
-    noMsg.style.display   = activeCampaign ? 'none' : '';
+    noMsg.style.display   = activeCampaign ? 'none' : 'inline';
     emptyEl.style.display = activeCampaign ? 'block' : 'none';
     canvas.style.display  = 'none';
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
