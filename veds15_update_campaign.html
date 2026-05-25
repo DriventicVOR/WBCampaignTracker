@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.18</div>
+  <div class="version-badge">v2.5.19</div>
   <div class="spacer"></div>
 </header>
 
@@ -11869,6 +11869,7 @@ async function doScan() {
     qrLog('centre px: r=' + px[0] + ' g=' + px[1] + ' b=' + px[2]);
   }
 
+  qrLog('starting crop loop sc=' + _scanCount);
   // Try jsQR at multiple crop levels — each crop is scaled UP to full resolution
   const crops = [
     { label: 'full', sx: 0,          sy: 0,          sw: vw,       sh: vh       },
@@ -11888,14 +11889,16 @@ async function doScan() {
     const imageData = cropCtx.getImageData(0, 0, vw, vh);
 
     for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
-      const code = jsQR(imageData.data, vw, vh, { inversionAttempts: inv });
+      let code;
+      try { code = jsQR(imageData.data, vw, vh, { inversionAttempts: inv }); }
+      catch(e) { qrLog('jsQR err: ' + e.message, '#f85149'); break; }
       if (code && code.data) {
         qrLog('✓ ' + crop.label + '/' + inv + ': ' + code.data, '#3fb950');
         qrDetected(code.data);
         return;
       }
     }
-    if (_scanCount <= 3) qrLog(crop.label + '→empty');
+    if (_scanCount <= 10) qrLog(crop.label + '→empty');
   }
 
   scheduleScan();
