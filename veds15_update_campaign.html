@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.24</div>
+  <div class="version-badge">v2.5.25</div>
   <div class="spacer"></div>
 </header>
 
@@ -10537,9 +10537,14 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div style="position:absolute;top:25%;left:25%;right:25%;bottom:25%;border:2px solid rgba(88,166,255,0.6);border-radius:4px;pointer-events:none;"></div>
   </div>
   <div id="qrStatus" style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0;flex-shrink:0;">Aim the QR code at the centre box</div>
-  <div id="qrDebugPanel" style="width:min(90vw,360px);flex-shrink:0;background:rgba(0,0,0,0.7);border:1px solid #30363d;border-radius:6px;padding:10px 12px;min-height:200px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:13px;color:#7d8590;line-height:1.8;"></div>
-  <button class="ghost" onclick="closeQrScanner()" style="margin-top:12px;flex-shrink:0;">Cancel</button>
+  <div style="display:flex;gap:8px;flex-shrink:0;margin-bottom:4px;">
+    <button class="primary" onclick="capturePhoto()" style="font-size:13px;padding:9px 18px;">📸 Take Photo</button>
+    <button class="ghost" onclick="closeQrScanner()">Cancel</button>
+  </div>
+  <div style="font-size:11px;color:var(--muted);text-align:center;flex-shrink:0;">Live scan runs automatically. Use Take Photo for small or tricky codes.</div>
+  <div id="qrDebugPanel" style="width:min(90vw,360px);flex-shrink:0;background:rgba(0,0,0,0.7);border:1px solid #30363d;border-radius:6px;padding:10px 12px;min-height:160px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:13px;color:#7d8590;line-height:1.8;"></div>
 </div>
+<input type="file" id="qrPhotoInput" accept="image/*" capture="environment" style="display:none">
 <canvas id="qrCanvas" style="display:none;width:min(90vw,360px);border:1px solid #f85149;border-radius:6px;margin-top:8px;"></canvas>
 
 <div class="toast" id="toast"></div>
@@ -11941,8 +11946,72 @@ function closeQrScanner() {
   _qrTargetId = null;
 }
 
+function capturePhoto() {
+  document.getElementById('qrPhotoInput').value = '';
+  document.getElementById('qrPhotoInput').click();
+}
+
 function setupQrInput() {
   qrLog('jsQR ' + (typeof jsQR === 'function' ? 'loaded' : 'MISSING'));
+
+  // Photo decode handler
+  document.getElementById('qrPhotoInput').addEventListener('change', async () => {
+    const file = document.getElementById('qrPhotoInput').files[0];
+    if (!file) return;
+    qrLog('photo received, decoding…', '#d29922');
+
+    const img = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = reader.result;
+      };
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    qrLog('photo ' + img.naturalWidth + 'x' + img.naturalHeight);
+
+    const c   = document.getElementById('qrCanvas');
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    const pw  = img.naturalWidth;
+    const ph  = img.naturalHeight;
+    const phw = Math.round(pw / 2);
+
+    // Try full photo, left half, right half, and centre crops — all at native resolution
+    const photoCrops = [
+      { label: 'photo-full',  sx: 0,           sy: 0, sw: pw,  sh: ph },
+      { label: 'photo-left',  sx: 0,           sy: 0, sw: phw, sh: ph },
+      { label: 'photo-right', sx: phw,          sy: 0, sw: phw, sh: ph },
+      { label: 'photo-c50',   sx: pw * 0.25,   sy: ph * 0.25, sw: pw * 0.5, sh: ph * 0.5 },
+      { label: 'photo-c50L',  sx: pw * 0.25,   sy: ph * 0.25, sw: pw * 0.25, sh: ph * 0.5 },
+      { label: 'photo-c50R',  sx: pw * 0.5,    sy: ph * 0.25, sw: pw * 0.25, sh: ph * 0.5 },
+    ];
+
+    for (const crop of photoCrops) {
+      const sw = Math.round(crop.sw);
+      const sh = Math.round(crop.sh);
+      if (sw < 10 || sh < 10) continue;
+      c.width  = sw;
+      c.height = sh;
+      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, sw, sh);
+      let imageData;
+      try { imageData = ctx.getImageData(0, 0, sw, sh); } catch(e) { continue; }
+      for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
+        let code;
+        try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); } catch(e) { continue; }
+        if (code && code.data) {
+          qrLog('✓ ' + crop.label + ': ' + code.data, '#3fb950');
+          qrDetected(code.data);
+          return;
+        }
+      }
+      qrLog(crop.label + '→empty');
+    }
+    qrLog('photo: no QR found', '#f85149');
+  });
 }
 
 init();
