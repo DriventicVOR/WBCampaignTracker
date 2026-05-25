@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.25</div>
+  <div class="version-badge">v2.5.26</div>
   <div class="spacer"></div>
 </header>
 
@@ -11902,15 +11902,39 @@ async function doScan() {
       qrLog(crop.label + ' bad imageData', '#f85149'); continue;
     }
 
-    for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
-      let code;
-      try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); }
-      catch(e) { qrLog('jsQR err: ' + e.message, '#f85149'); break; }
-      if (code && code.data) {
-        qrLog('✓ ' + crop.label + ': ' + code.data, '#3fb950');
-        qrDetected(code.data);
-        return;
+    // Try ZXing first (better small QR support), then jsQR as fallback
+    let decoded = null;
+
+    if (typeof ZXing !== 'undefined') {
+      try {
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+        const reader   = new ZXing.MultiFormatReader();
+        reader.setHints(hints);
+        const luminance = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
+        const bitmap    = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminance));
+        const result    = reader.decode(bitmap);
+        if (result && result.getText()) decoded = result.getText();
+      } catch(e) {
+        // NotFoundException is normal when no code found — only log other errors
+        if (e.name !== 'NotFoundException' && _scanCount <= 5) qrLog('ZXing: ' + e.name);
       }
+    }
+
+    if (!decoded) {
+      for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
+        let code;
+        try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); }
+        catch(e) { break; }
+        if (code && code.data) { decoded = code.data; break; }
+      }
+    }
+
+    if (decoded) {
+      qrLog('✓ ' + crop.label + ': ' + decoded, '#3fb950');
+      qrDetected(decoded);
+      return;
     }
     if (_scanCount <= 5) qrLog(crop.label + '→empty');
   }
@@ -11953,6 +11977,7 @@ function capturePhoto() {
 
 function setupQrInput() {
   qrLog('jsQR ' + (typeof jsQR === 'function' ? 'loaded' : 'MISSING'));
+  qrLog('ZXing ' + (typeof ZXing !== 'undefined' ? 'loaded' : 'MISSING'));
 
   // Photo decode handler
   document.getElementById('qrPhotoInput').addEventListener('change', async () => {
@@ -11999,14 +12024,33 @@ function setupQrInput() {
       ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, sw, sh);
       let imageData;
       try { imageData = ctx.getImageData(0, 0, sw, sh); } catch(e) { continue; }
-      for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
-        let code;
-        try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); } catch(e) { continue; }
-        if (code && code.data) {
-          qrLog('✓ ' + crop.label + ': ' + code.data, '#3fb950');
-          qrDetected(code.data);
-          return;
+      let decoded = null;
+      if (typeof ZXing !== 'undefined') {
+        try {
+          const hints = new Map();
+          hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+          const reader   = new ZXing.MultiFormatReader();
+          reader.setHints(hints);
+          const luminance = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
+          const bitmap    = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminance));
+          const result    = reader.decode(bitmap);
+          if (result && result.getText()) decoded = result.getText();
+        } catch(e) {
+          if (e.name !== 'NotFoundException') qrLog('ZXing photo: ' + e.name);
         }
+      }
+      if (!decoded) {
+        for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
+          let code;
+          try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); } catch(e) { continue; }
+          if (code && code.data) { decoded = code.data; break; }
+        }
+      }
+      if (decoded) {
+        qrLog('✓ ' + crop.label + ': ' + decoded, '#3fb950');
+        qrDetected(decoded);
+        return;
       }
       qrLog(crop.label + '→empty');
     }
