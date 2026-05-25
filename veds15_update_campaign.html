@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.7</div>
+  <div class="version-badge">v2.4.8</div>
   <div class="spacer"></div>
 </header>
 
@@ -1546,26 +1546,26 @@ function renderGraph() {
       labels,
       datasets: [
         {
-          label: 'Complete',
-          data: completePts,
-          fill: 'origin',
-          backgroundColor: 'rgba(63,185,80,0.25)',
-          borderColor: '#3fb950',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: '#3fb950',
-          tension: 0.3,
-          order: 2,
-        },
-        {
           label: 'In Progress',
           data: progressPts.map((v,i) => v + completePts[i]), // stacked on top of complete
-          fill: '-1',  // fill to the previous dataset (Complete)
+          fill: 'origin',
           backgroundColor: 'rgba(210,153,34,0.25)',
           borderColor: '#d29922',
           borderWidth: 2,
           pointRadius: 3,
           pointBackgroundColor: '#d29922',
+          tension: 0.3,
+          order: 2,
+        },
+        {
+          label: 'Complete',
+          data: completePts,
+          fill: '-1',  // fill to the previous dataset (In Progress) — renders on top
+          backgroundColor: 'rgba(63,185,80,0.25)',
+          borderColor: '#3fb950',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#3fb950',
           tension: 0.3,
           order: 1,
         },
@@ -1599,7 +1599,7 @@ function renderGraph() {
             label: ctx => {
               const ds = ctx.dataset.label;
               let val = ctx.parsed.y;
-              if (ds === 'In Progress') val = val - completePts[ctx.dataIndex];
+              if (ds === 'Complete') val = val - progressPts[ctx.dataIndex];
               return ` ${ds}: ${val}`;
             }
           }
