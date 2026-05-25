@@ -6,6 +6,7 @@
 <title>WrightBus Campaign Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
 :root {
@@ -233,7 +234,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.0</div>
+  <div class="version-badge">v2.5.1</div>
   <div class="spacer"></div>
 </header>
 
@@ -1659,51 +1660,71 @@ function renderGraph() {
 }
 
 // ══ QR SCANNER ══
-let _qrStream = null;
-let _qrTargetId = null;
-let _qrAnimFrame = null;
+let _qrStream    = null;
+let _qrTargetId  = null;
+let _qrScanTimer = null;
+let _qrActive    = false;
 
 async function openQrScanner(fieldId, fieldLabel) {
   _qrTargetId = fieldId;
+  _qrActive   = true;
   document.getElementById('qrTargetLabel').textContent = fieldLabel;
-  const overlay = document.getElementById('qrOverlay');
-  const video   = document.getElementById('qrVideo');
-  overlay.style.display = 'flex';
+  document.getElementById('qrOverlay').style.display = 'flex';
+  const video = document.getElementById('qrVideo');
+
   try {
-    _qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    // Request highest resolution rear camera for best decode chance
+    _qrStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1280 },
+        height: { ideal: 720 },
+      }
+    });
     video.srcObject = _qrStream;
+    video.setAttribute('playsinline', true);
     await video.play();
-    scanQrFrame();
+    // Give the camera 500ms to stabilise before scanning
+    setTimeout(startQrLoop, 500);
   } catch(e) {
-    overlay.style.display = 'none';
-    showToast('Camera access denied or unavailable', 'error');
+    closeQrScanner();
+    showToast('Camera unavailable: ' + e.message, 'error');
   }
 }
 
-function scanQrFrame() {
+function startQrLoop() {
+  if (!_qrActive) return;
+  scanQrTick();
+}
+
+function scanQrTick() {
+  if (!_qrActive) return;
   const video  = document.getElementById('qrVideo');
   const canvas = document.getElementById('qrCanvas');
-  if (video.readyState < video.HAVE_ENOUGH_DATA) { _qrAnimFrame = requestAnimationFrame(scanQrFrame); return; }
+
+  if (video.readyState !== video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
+    _qrScanTimer = setTimeout(scanQrTick, 100);
+    return;
+  }
+
   canvas.width  = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  // Use BarcodeDetector if available (Chrome/Android), otherwise fall back to jsQR
-  if (window.BarcodeDetector) {
-    new BarcodeDetector({ formats: ['qr_code'] }).detect(canvas).then(codes => {
-      if (codes.length > 0) qrDetected(codes[0].rawValue);
-      else _qrAnimFrame = requestAnimationFrame(scanQrFrame);
-    }).catch(() => { _qrAnimFrame = requestAnimationFrame(scanQrFrame); });
-  } else if (window.jsQR) {
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-    if (code) qrDetected(code.data);
-    else _qrAnimFrame = requestAnimationFrame(scanQrFrame);
+
+  // jsQR is loaded in <head> — always available
+  const code = jsQR(imageData.data, imageData.width, imageData.height, {
+    inversionAttempts: 'dontInvert',
+  });
+
+  if (code && code.data) {
+    qrDetected(code.data);
   } else {
-    // Load jsQR on demand
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js').then(() => {
-      _qrAnimFrame = requestAnimationFrame(scanQrFrame);
-    });
+    // Scan every 150ms — fast enough to be responsive, not so fast it blocks the UI
+    _qrScanTimer = setTimeout(scanQrTick, 150);
   }
 }
 
@@ -1719,7 +1740,8 @@ function qrDetected(value) {
 }
 
 function closeQrScanner() {
-  if (_qrAnimFrame) { cancelAnimationFrame(_qrAnimFrame); _qrAnimFrame = null; }
+  _qrActive = false;
+  if (_qrScanTimer) { clearTimeout(_qrScanTimer); _qrScanTimer = null; }
   if (_qrStream)    { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
   const video = document.getElementById('qrVideo');
   video.srcObject = null;
