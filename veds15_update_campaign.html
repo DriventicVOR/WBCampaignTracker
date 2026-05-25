@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.5</div>
+  <div class="version-badge">v2.4.7</div>
   <div class="spacer"></div>
 </header>
 
@@ -1191,13 +1191,24 @@ function populateSelect(id, values, placeholder, includeUnknown=false) {
   sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
 }
 
+function searchRegex(q) {
+  // Strip spaces, uppercase, then convert * wildcards to regex .*
+  const clean = q.replace(/\s/g, '').toUpperCase();
+  if (!clean.includes('*')) return null; // no wildcard — use plain includes
+  const escaped = clean.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(escaped);
+}
+
 function matchesSearch(v, q) {
   if (!q) return true;
-  const uq = q.toUpperCase();
-  if (v.body_number   && v.body_number.toUpperCase().includes(uq))   return true;
-  if (v.fleet_number  && v.fleet_number.toUpperCase().includes(uq))  return true;
-  if (v.registration  && v.registration.toUpperCase().includes(uq))  return true;
-  return false;
+  const uq  = q.replace(/\s/g, '').toUpperCase();
+  const rx  = searchRegex(q);
+  const test = (val) => {
+    if (!val) return false;
+    const s = val.replace(/\s/g, '').toUpperCase();
+    return rx ? rx.test(s) : s.includes(uq);
+  };
+  return test(v.body_number) || test(v.fleet_number) || test(v.registration);
 }
 
 // Filter helper — apply all filters except the one named in 'except'
