@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.17</div>
+  <div class="version-badge">v2.5.18</div>
   <div class="spacer"></div>
 </header>
 
@@ -11834,18 +11834,39 @@ async function doScan() {
   const vh = video.videoHeight;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-  // Grab frame inside rAF so it's fully composited
-  await new Promise(resolve => requestAnimationFrame(() => {
-    canvas.width  = vw;
-    canvas.height = vh;
-    ctx.drawImage(video, 0, 0);
-    resolve();
-  }));
+  // Grab frame — try multiple draw methods for Android Chrome compatibility
+  canvas.width  = vw;
+  canvas.height = vh;
 
-  // Show preview on first scans
+  // Method 1: direct drawImage
+  ctx.drawImage(video, 0, 0);
+
+  // Check if frame has content by sampling centre pixels
+  const sampleDirect = ctx.getImageData(Math.floor(vw/2), Math.floor(vh/2), 8, 8);
+  const directOk = sampleDirect.data.some(v => v > 10);
+
+  if (!directOk) {
+    // Method 2: draw inside rAF
+    await new Promise(resolve => requestAnimationFrame(() => {
+      ctx.drawImage(video, 0, 0);
+      resolve();
+    }));
+    const sampleRaf = ctx.getImageData(Math.floor(vw/2), Math.floor(vh/2), 8, 8);
+    const rafOk = sampleRaf.data.some(v => v > 10);
+    if (_scanCount <= 3) qrLog('direct=' + directOk + ' rAF=' + rafOk);
+    if (!rafOk) { scheduleScan(); return; }
+  }
+
+  // Show canvas preview on first scans
   if (_scanCount <= 5) {
     canvas.style.display = 'block';
     canvas.style.height  = 'auto';
+  }
+
+  // Log centre pixel values on first scan so we know what jsQR is seeing
+  if (_scanCount === 1) {
+    const px = ctx.getImageData(Math.floor(vw/2), Math.floor(vh/2), 1, 1).data;
+    qrLog('centre px: r=' + px[0] + ' g=' + px[1] + ' b=' + px[2]);
   }
 
   // Try jsQR at multiple crop levels — each crop is scaled UP to full resolution
