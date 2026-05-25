@@ -186,6 +186,15 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .toast.error{border-left:3px solid var(--pending);}
 .toast.info{border-left:3px solid var(--accent);}
 
+.driveline-check-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.dl-check-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;}
+.dl-check-item:hover{border-color:var(--accent);}
+.dl-check-item input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
+.dl-check-item label{font-size:13px;color:var(--text);cursor:pointer;flex:1;}
+.dl-count{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+.new-fleet-drop{border:2px dashed var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.new-fleet-drop:hover,.new-fleet-drop.drag-over{border-color:var(--accent);color:var(--accent);}
+
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -195,7 +204,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.2.3</div>
+  <div class="version-badge">v2.3.0</div>
   <div class="spacer"></div>
 </header>
 
@@ -266,13 +275,21 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="config-section">
       <h2>Create New Campaign</h2>
       <div class="new-campaign-form">
-        <div class="form-row-inline">
-          <div class="field-group">
-            <label>Campaign Name</label>
-            <input type="text" id="newCampName" placeholder="e.g. VEDs1.5-SW-Update">
-          </div>
-          <button class="primary" onclick="createCampaign()" style="height:36px;white-space:nowrap;">+ Create Campaign</button>
+        <div class="field-group">
+          <label>Campaign Name</label>
+          <input type="text" id="newCampName" placeholder="e.g. VEDs1.5-SW-Update" style="width:100%;">
         </div>
+
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Initial Fleet File <span style="font-style:italic;text-transform:none;letter-spacing:0;">(required)</span></div>
+          <div class="new-fleet-drop" id="newFleetDrop">⬆ Drop fleet .xlsx here to load vehicles</div>
+          <input type="file" id="newFleetInput" accept=".xlsx" style="display:none">
+          <div id="newDrivelineWrap" style="display:none;margin-top:12px;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;">Select Driveline Systems to include</div>
+            <div class="driveline-check-list" id="newDrivelineList"></div>
+          </div>
+        </div>
+
         <div>
           <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
           <div class="builder-area" id="newBuilderArea"></div>
@@ -280,6 +297,10 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
             <button class="ghost" onclick="builderAddField('newBuilderArea')">+ Add Field</button>
             <button class="ghost" onclick="builderAddGroup('newBuilderArea')">+ Add Group</button>
           </div>
+        </div>
+
+        <div>
+          <button class="primary" onclick="createCampaign()" style="width:100%;">+ Create Campaign</button>
         </div>
       </div>
     </div>
@@ -450,6 +471,7 @@ async function init() {
   refreshCampaignDropdown();
   renderCampaignList();
   setupDrop();
+  setupNewFleetDrop();
   setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
 }
 
@@ -740,22 +762,107 @@ function populateBuilder(areaId, schema) {
   });
 }
 
+// ══ NEW CAMPAIGN FLEET PICKER ══
+let _newFleetRows = [];  // raw xlsx rows cached during creation
+
+function setupNewFleetDrop() {
+  const drop  = document.getElementById('newFleetDrop');
+  const input = document.getElementById('newFleetInput');
+  drop.addEventListener('click', () => input.click());
+  input.addEventListener('change', e => { if (e.target.files[0]) loadNewFleet(e.target.files[0]); e.target.value=''; });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.xlsx')) loadNewFleet(f);
+    else showToast('Please drop a .xlsx file','error');
+  });
+}
+
+async function loadNewFleet(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb  = window.XLSX.read(buf, { type:'array' });
+    let wsName = wb.SheetNames.find(n => n === 'CM Warranty');
+    if (!wsName) wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'cm warranty');
+    if (!wsName) { showToast('Sheet "CM Warranty" not found. Available: ' + wb.SheetNames.join(', '), 'error'); return; }
+    _newFleetRows = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header:1, defval:null });
+
+    // Extract unique driveline systems from rows passing Delivered to Customer filter
+    const dlSet = new Set();
+    const dlCounts = {};
+    const delivFilter = 'delivered to customer';
+    for (let r = 1; r < _newFleetRows.length; r++) {
+      const row = _newFleetRows[r];
+      if (!row) continue;
+      const prod = row[0] ? String(row[0]).trim().toLowerCase() : '';
+      const ship = row[1] ? String(row[1]).trim().toLowerCase() : '';
+      if (prod !== delivFilter && ship !== delivFilter) continue;
+      const dl = row[25] ? String(row[25]).trim() : '';
+      if (!dl) continue;
+      dlSet.add(dl);
+      dlCounts[dl] = (dlCounts[dl] || 0) + 1;
+    }
+
+    const list = document.getElementById('newDrivelineList');
+    list.innerHTML = '';
+    const sorted = [...dlSet].sort();
+    if (sorted.length === 0) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;">No delivered vehicles found in this file.</div>';
+    } else {
+      sorted.forEach(dl => {
+        const id = `dl_${dl.replace(/[^a-z0-9]/gi,'_')}`;
+        const item = document.createElement('div');
+        item.className = 'dl-check-item';
+        item.innerHTML = `
+          <input type="checkbox" id="${id}" value="${dl}">
+          <label for="${id}">${dl}</label>
+          <span class="dl-count">${dlCounts[dl]} vehicle${dlCounts[dl]!==1?'s':''}</span>`;
+        list.appendChild(item);
+      });
+    }
+    document.getElementById('newDrivelineWrap').style.display = 'block';
+    document.getElementById('newFleetDrop').textContent = '✓ ' + file.name + ' — drop again to replace';
+    showToast(`Fleet file loaded — ${sorted.length} driveline system${sorted.length!==1?'s':''} found`, 'info');
+  } catch(e) {
+    showToast('Fleet parse error: ' + e.message, 'error');
+  }
+}
+
 // ══ CREATE CAMPAIGN ══
 async function createCampaign() {
   const name = document.getElementById('newCampName').value.trim();
   if (!name) { showToast('Please enter a campaign name','error'); return; }
+
+  // Validate fleet file loaded
+  if (_newFleetRows.length === 0) { showToast('Please load an initial fleet file','error'); return; }
+
+  // Get selected driveline systems
+  const selectedDL = [...document.querySelectorAll('#newDrivelineList input[type=checkbox]:checked')].map(cb => cb.value);
+  if (selectedDL.length === 0) { showToast('Please select at least one Driveline System','error'); return; }
+
   const schema = readBuilderSchema('newBuilderArea');
   const id = `camp_${Date.now()}`;
   const safeName = name.replace(/[^a-zA-Z0-9_\-]/g,'_');
   const fileName = `${safeName}-CampaignData.json`;
-  const campaign = { id, name, fileName, status:'open', schema, createdAt:new Date().toISOString() };
+  const campaign = { id, name, fileName, status:'open', schema, drivelineSystems: selectedDL, createdAt:new Date().toISOString() };
+
+  // Parse initial vehicles using selected driveline filter
+  const initialVehicles = parseRowsWithFilter(_newFleetRows, selectedDL, schema);
+
   campaignList.push(campaign);
   try {
     await sbPut(CAMP_LIST_FILE, campaignList);
-    await sbPut(fileName, []);
-    showToast(`Campaign "${name}" created`,'success');
-    document.getElementById('newCampName').value='';
-    document.getElementById('newBuilderArea').innerHTML='';
+    await sbPut(fileName, initialVehicles);
+    showToast(`Campaign "${name}" created with ${initialVehicles.length} vehicles`, 'success');
+    // Reset form
+    document.getElementById('newCampName').value = '';
+    document.getElementById('newBuilderArea').innerHTML = '';
+    document.getElementById('newDrivelineWrap').style.display = 'none';
+    document.getElementById('newDrivelineList').innerHTML = '';
+    document.getElementById('newFleetDrop').textContent = '⬆ Drop fleet .xlsx here to load vehicles';
+    _newFleetRows = [];
     refreshCampaignDropdown();
     renderCampaignList();
   } catch(e) { campaignList.pop(); showToast('Create failed: '+e.message,'error'); }
@@ -920,12 +1027,18 @@ function excelDateToString(val) {
   return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth()+1).padStart(2,'0')}-${String(utc.getUTCDate()).padStart(2,'0')}`;
 }
 
-function parseXlsxRow(row) {
+// Parse a single raw xlsx row, filtering by Delivered to Customer + allowed driveline systems
+// allowedDL = array of driveline system strings; if null/empty uses legacy 'veds 1.5' hardcode
+function parseXlsxRow(row, allowedDL) {
   const prod=row[0]?String(row[0]).trim():'', ship=row[1]?String(row[1]).trim():'';
   const dl=row[25]?String(row[25]).trim():'';
   const f='delivered to customer';
   if (prod.toLowerCase()!==f && ship.toLowerCase()!==f) return null;
-  if (dl.toLowerCase()!=='veds 1.5') return null;
+  if (allowedDL && allowedDL.length > 0) {
+    if (!allowedDL.map(s=>s.toLowerCase()).includes(dl.toLowerCase())) return null;
+  } else {
+    if (dl.toLowerCase()!=='veds 1.5') return null;
+  }
   const bodyNum=row[6]?String(row[6]).trim():null;
   if (!bodyNum) return null;
   const rms=row[16]?String(row[16]).trim().toLowerCase():null, ry=row[17]?parseInt(row[17]):null;
@@ -933,6 +1046,21 @@ function parseXlsxRow(row) {
   if (ry&&rms&&MONTH_MAP[rms]) rd=`${ry}-${String(MONTH_MAP[rms]).padStart(2,'0')}`;
   else if (ry) rd=String(ry);
   return { body_number:bodyNum, production_status:prod||null, shipping_status:ship||null, delivery_date:excelDateToString(row[4]), fleet_number:row[7]?String(row[7]).trim():null, account_name:row[8]?String(row[8]).trim():null, operator:row[9]?String(row[9]).trim():null, depot:row[10]?String(row[10]).trim():null, model:row[11]?String(row[11]).trim():null, deck_type:row[14]?String(row[14]).trim():null, registration:row[15]?String(row[15]).trim():null, reg_date:rd, chassis_number:row[18]?String(row[18]).trim():null };
+}
+
+// Parse all rows from a fleet file using campaign's driveline filter, returns vehicle array
+function parseRowsWithFilter(rows, allowedDL, schema) {
+  const vehicles = [];
+  const seen = new Set();
+  for (let r = 1; r < rows.length; r++) {
+    const p = parseXlsxRow(rows[r], allowedDL);
+    if (!p || seen.has(p.body_number)) continue;
+    seen.add(p.body_number);
+    p.update_status = 'Pending';
+    p.engineer_data = buildEmptyEngineerData(schema);
+    vehicles.push(p);
+  }
+  return vehicles;
 }
 
 function buildEmptyEngineerData(schema) {
@@ -957,11 +1085,13 @@ async function handleXlsx(file) {
     if (!wsName) wsName=wb.SheetNames.find(n=>n.trim().toLowerCase()==='cm warranty');
     if (!wsName) { showToast('Sheet not found. Available: '+wb.SheetNames.join(', '),'error'); return; }
     const rows=window.XLSX.utils.sheet_to_json(wb.Sheets[wsName],{header:1,defval:null});
+    // Use campaign's saved driveline filter (fall back to legacy 'veds 1.5' if not set)
+    const allowedDL = activeCampaign.drivelineSystems || null;
     const existingMap={};
     vehicles.forEach((v,i)=>{ existingMap[v.body_number]=i; });
     let added=0;
     for (let r=1;r<rows.length;r++) {
-      const p=parseXlsxRow(rows[r]); if(!p) continue;
+      const p=parseXlsxRow(rows[r], allowedDL); if(!p) continue;
       if (existingMap[p.body_number]!==undefined) {
         const ex=vehicles[existingMap[p.body_number]];
         const saved={engineer_data:ex.engineer_data,update_status:ex.update_status};
