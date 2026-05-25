@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.4</div>
+  <div class="version-badge">v2.5.5</div>
   <div class="spacer"></div>
 </header>
 
@@ -11777,6 +11777,21 @@ function loadScript(src) {
 }
 
 // Set up the file input handler once the DOM is ready
+// Load image from File into an HTMLImageElement via FileReader (works on all browsers)
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read image file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not decode image'));
+      img.onload  = () => resolve(img);
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function setupQrInput() {
   const input = document.getElementById('qrCaptureInput');
   input.addEventListener('change', async () => {
@@ -11785,26 +11800,27 @@ function setupQrInput() {
     showToast('Decoding image…', 'info');
 
     try {
-      if (typeof jsQR !== 'function') throw new Error('QR decoder not loaded — check internet connection');
-      const bitmap = await createImageBitmap(file);
+      if (typeof jsQR !== 'function') throw new Error('QR decoder not available');
+
+      const img    = await loadImageFromFile(file);
       const canvas = document.getElementById('qrCanvas');
       const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
-      // Try decoding at multiple scales — large images often cause jsQR to miss codes.
-      // We try from largest (capped at 1024px) down to 400px.
-      const MAX_SIZES = [1024, 800, 600, 400];
+      // Try at multiple scales — phone cameras produce very large images;
+      // jsQR works best on images scaled to roughly the QR code size.
+      const MAX_SIZES = [1024, 800, 600, 400, 300];
       let result = null;
 
       for (const maxDim of MAX_SIZES) {
-        const scale  = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
-        const w = Math.round(bitmap.width  * scale);
-        const h = Math.round(bitmap.height * scale);
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth  * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
         canvas.width  = w;
         canvas.height = h;
-        ctx.drawImage(bitmap, 0, 0, w, h);
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
         const imageData = ctx.getImageData(0, 0, w, h);
 
-        // Try all inversion modes at each scale
         for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
           const code = jsQR(imageData.data, w, h, { inversionAttempts: inv });
           if (code && code.data) { result = code.data; break; }
