@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.12</div>
+  <div class="version-badge">v2.5.13</div>
   <div class="spacer"></div>
 </header>
 
@@ -11849,15 +11849,52 @@ async function doScan() {
 
   // Always use canvas snapshot — more reliable than passing video element directly
   const canvas = document.getElementById('qrCanvas');
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(video, 0, 0);
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
 
-  // Show canvas on screen (first 10 scans only) so we can see what the detector sees
+  // Detect rotation: if the video is wider than tall but the device is portrait,
+  // the stream is rotated 90°. We try all four orientations each scan.
+  const rotations = [0];
+  if (vw > vh) rotations.push(90, 270); // landscape stream on portrait device
+  if (_scanCount <= 3) qrLog('stream=' + vw + 'x' + vh + ' trying rotations: ' + rotations.join(','));
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  // Show first canvas capture
   if (_scanCount <= 10) {
     canvas.style.display = 'block';
     canvas.style.height  = 'auto';
+  }
+
+  // Try each rotation and return early if detected
+  for (const deg of rotations) {
+    if (deg === 0) {
+      canvas.width  = vw;
+      canvas.height = vh;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(video, 0, 0);
+    } else {
+      // 90 or 270 — swap width/height
+      canvas.width  = vh;
+      canvas.height = vw;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(deg * Math.PI / 180);
+      ctx.drawImage(video, -vw / 2, -vh / 2);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    try {
+      const codes = await _qrDetector.detect(canvas);
+      if (_scanCount <= 3) qrLog('rot' + deg + '→' + (codes.length ? 'FOUND' : 'empty'));
+      if (codes.length > 0 && codes[0].rawValue) {
+        qrLog('✓ ' + codes[0].rawValue, '#3fb950');
+        qrDetected(codes[0].rawValue);
+        return;
+      }
+    } catch(e) {
+      if (_scanCount <= 3) qrLog('rot' + deg + ' err: ' + e.message, '#f85149');
+    }
   }
 
   // Try detect on canvas
@@ -11873,23 +11910,7 @@ async function doScan() {
     qrLog('canvas err: ' + e.message, '#f85149');
   }
 
-  // Also try detect on ImageBitmap from the canvas (different code path)
-  if (_scanCount <= 5 || _scanCount % 10 === 0) {
-    try {
-      const bmp   = await createImageBitmap(canvas);
-      const codes = await _qrDetector.detect(bmp);
-      if (_scanCount <= 3) qrLog('bitmap→' + (codes.length ? 'FOUND' : 'empty'));
-      if (codes.length > 0 && codes[0].rawValue) {
-        qrLog('✓ bitmap ' + codes[0].rawValue, '#3fb950');
-        qrDetected(codes[0].rawValue);
-        bmp.close();
-        return;
-      }
-      bmp.close();
-    } catch(e) {
-      if (_scanCount <= 3) qrLog('bitmap err: ' + e.message, '#f85149');
-    }
-  }
+
 
   scheduleScan();
 }
