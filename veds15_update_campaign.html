@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.7</div>
+  <div class="version-badge">v2.5.8</div>
   <div class="spacer"></div>
 </header>
 
@@ -10537,6 +10537,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div style="position:absolute;top:25%;left:25%;right:25%;bottom:25%;border:2px solid rgba(88,166,255,0.6);border-radius:4px;pointer-events:none;"></div>
   </div>
   <div id="qrStatus" style="font-size:12px;color:var(--muted);text-align:center;">Aim the QR code at the centre box</div>
+  <div id="qrDebugPanel" style="width:min(90vw,360px);background:rgba(0,0,0,0.7);border:1px solid #30363d;border-radius:6px;padding:8px 10px;max-height:120px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:10px;color:#7d8590;line-height:1.5;"></div>
   <button class="ghost" onclick="closeQrScanner()">Cancel</button>
 </div>
 <canvas id="qrCanvas" style="display:none;"></canvas>
@@ -11773,13 +11774,20 @@ function openQrScanner(fieldId, fieldLabel) {
   }
   _qrTargetId = fieldId;
   _qrActive   = true;
+  _scanCount  = 0;
   document.getElementById('qrTargetLabel').textContent = fieldLabel;
   document.getElementById('qrStatus').textContent      = 'Starting camera…';
   document.getElementById('qrOverlay').style.display   = 'flex';
 
   // Create detector once
+  // Clear debug panel
+  const panel = document.getElementById('qrDebugPanel');
+  if (panel) panel.innerHTML = '';
+
   try {
     _qrDetector = new BarcodeDetector({ formats: ['qr_code'] });
+    BarcodeDetector.getSupportedFormats().then(fmts => qrLog('Formats: ' + fmts.join(', ')));
+    qrLog('BarcodeDetector created OK');
   } catch(e) {
     showToast('BarcodeDetector init failed: ' + e.message, 'error');
     closeQrScanner(); return;
@@ -11813,35 +11821,42 @@ function scheduleScan() {
 }
 
 let _scanCount = 0;
+
+function qrLog(msg, colour) {
+  const panel = document.getElementById('qrDebugPanel');
+  if (!panel) return;
+  const line = document.createElement('div');
+  line.style.color = colour || '#7d8590';
+  line.textContent = msg;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+  // Also log to console
+  console.log('[QR]', msg);
+}
+
 async function doScan() {
   if (!_qrActive) return;
   const video = document.getElementById('qrVideo');
   if (!video || video.readyState < 2 || video.videoWidth === 0) {
-    if (_scanCount === 0) console.log('QR: waiting for video readyState', video ? video.readyState : 'no video', 'size', video ? video.videoWidth+'x'+video.videoHeight : '?');
+    if (_scanCount === 0) qrLog('Waiting… readyState=' + (video ? video.readyState : 'null') + ' size=' + (video ? video.videoWidth+'x'+video.videoHeight : '?'));
     scheduleScan(); return;
   }
 
   _scanCount++;
-  if (_scanCount <= 3 || _scanCount % 20 === 0) {
-    console.log('QR scan attempt', _scanCount, '— video', video.videoWidth+'x'+video.videoHeight, 'readyState', video.readyState, 'paused', video.paused);
-  }
+  if (_scanCount <= 3 || _scanCount % 20 === 0) qrLog('#' + _scanCount + ' video=' + video.videoWidth + 'x' + video.videoHeight + ' state=' + video.readyState + ' paused=' + video.paused);
 
   try {
     const codes = await _qrDetector.detect(video);
-    console.log('QR detect result:', codes);
+    if (codes.length > 0) qrLog('DETECTED: ' + codes[0].rawValue, '#3fb950'); else if (_scanCount <= 3) qrLog('detect() → empty array');
     if (codes && codes.length > 0 && codes[0].rawValue) {
       qrDetected(codes[0].rawValue);
     } else {
       // Also try passing a canvas snapshot in case detect(video) has issues on this device
-      if (_scanCount === 5) {
-        console.log('QR: trying canvas snapshot approach');
-        tryCanvasDetect();
-      }
+      if (_scanCount === 5) { qrLog('Trying canvas snapshot…', '#d29922'); tryCanvasDetect(); }
       scheduleScan();
     }
   } catch(e) {
-    console.warn('BarcodeDetector scan error:', e.name, e.message);
-    // If detect(video) keeps throwing, switch to canvas approach
+    qrLog('Scan error: ' + e.name + ': ' + e.message, '#f85149');
     if (_scanCount > 3) tryCanvasDetect();
     scheduleScan();
   }
@@ -11857,10 +11872,10 @@ async function tryCanvasDetect() {
   ctx.drawImage(video, 0, 0);
   try {
     const codes = await _qrDetector.detect(canvas);
-    console.log('QR canvas detect result:', codes);
+    qrLog('Canvas detect: ' + JSON.stringify(codes.map(c=>c.rawValue)), codes.length ? '#3fb950' : '#7d8590');
     if (codes && codes.length > 0 && codes[0].rawValue) qrDetected(codes[0].rawValue);
   } catch(e) {
-    console.warn('QR canvas detect error:', e.name, e.message);
+    qrLog('Canvas error: ' + e.name + ': ' + e.message, '#f85149');
   }
 }
 
@@ -11883,6 +11898,7 @@ function closeQrScanner() {
   if (video) video.srcObject = null;
   if (_qrStatusTimer) { clearInterval(_qrStatusTimer); _qrStatusTimer = null; }
   _scanCount = 0;
+  const dbp = document.getElementById('qrDebugPanel'); if (dbp) dbp.innerHTML = '';
   document.getElementById('qrOverlay').style.display = 'none';
   _qrTargetId = null;
   _qrDetector = null;
@@ -11892,11 +11908,7 @@ function setupQrInput() {
   // Check support on load and warn early
   if (!window.BarcodeDetector) {
     console.warn('BarcodeDetector not available on this browser');
-  } else {
-    BarcodeDetector.getSupportedFormats().then(formats => {
-      console.log('BarcodeDetector supported formats:', formats);
-    });
-  }
+  } // support check done on openQrScanner
 }
 
 init();
