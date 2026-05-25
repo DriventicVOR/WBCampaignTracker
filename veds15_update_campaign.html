@@ -208,14 +208,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .new-fleet-drop{border:2px dashed var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
 .new-fleet-drop:hover,.new-fleet-drop.drag-over{border-color:var(--accent);color:var(--accent);}
 
-/* QR camera overlay */
-.qr-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
-.qr-overlay video{width:100%;max-width:360px;border-radius:10px;border:2px solid var(--accent);}
-.qr-overlay canvas{display:none;}
-.qr-viewfinder{position:relative;width:100%;max-width:360px;}
-.qr-viewfinder::after{content:'';position:absolute;inset:20%;border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);}
-.qr-label{font-size:13px;color:var(--muted);text-align:center;}
-.qr-target{font-family:'Rajdhani',sans-serif;font-size:15px;color:var(--accent);font-weight:600;}
+/* QR scan button */
 /* QR button in eng field */
 .eng-field-row{display:flex;gap:6px;align-items:center;}
 .eng-field-row input{flex:1;}
@@ -234,7 +227,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.1</div>
+  <div class="version-badge">v2.5.2</div>
   <div class="spacer"></div>
 </header>
 
@@ -434,14 +427,9 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   </div>
 </div>
 
-<div class="qr-overlay" id="qrOverlay" style="display:none;">
-  <div class="qr-viewfinder">
-    <video id="qrVideo" autoplay playsinline muted></video>
-  </div>
-  <canvas id="qrCanvas"></canvas>
-  <div class="qr-label">Scanning for QR code — aim at code<br><span class="qr-target" id="qrTargetLabel"></span></div>
-  <button class="ghost" onclick="closeQrScanner()" style="margin-top:4px;">Cancel</button>
-</div>
+<!-- Hidden file input for QR capture — triggers native camera/QR on mobile -->
+<input type="file" id="qrCaptureInput" accept="image/*" capture="environment" style="display:none">
+<canvas id="qrCanvas" style="display:none;"></canvas>
 
 <div class="toast" id="toast"></div>
 
@@ -527,6 +515,7 @@ async function init() {
   renderCampaignList();
   setupDrop();
   setupNewFleetDrop();
+  setupQrInput();
   setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
 }
 
@@ -1660,93 +1649,21 @@ function renderGraph() {
 }
 
 // ══ QR SCANNER ══
-let _qrStream    = null;
-let _qrTargetId  = null;
-let _qrScanTimer = null;
-let _qrActive    = false;
+// Uses native file capture (input[capture=environment]) to invoke the device camera.
+// The captured image is decoded with jsQR on a canvas.
+let _qrTargetId = null;
 
-async function openQrScanner(fieldId, fieldLabel) {
+function openQrScanner(fieldId, fieldLabel) {
   _qrTargetId = fieldId;
-  _qrActive   = true;
-  document.getElementById('qrTargetLabel').textContent = fieldLabel;
-  document.getElementById('qrOverlay').style.display = 'flex';
-  const video = document.getElementById('qrVideo');
-
-  try {
-    // Request highest resolution rear camera for best decode chance
-    _qrStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: { ideal: 'environment' },
-        width:  { ideal: 1280 },
-        height: { ideal: 720 },
-      }
-    });
-    video.srcObject = _qrStream;
-    video.setAttribute('playsinline', true);
-    await video.play();
-    // Give the camera 500ms to stabilise before scanning
-    setTimeout(startQrLoop, 500);
-  } catch(e) {
-    closeQrScanner();
-    showToast('Camera unavailable: ' + e.message, 'error');
-  }
-}
-
-function startQrLoop() {
-  if (!_qrActive) return;
-  scanQrTick();
-}
-
-function scanQrTick() {
-  if (!_qrActive) return;
-  const video  = document.getElementById('qrVideo');
-  const canvas = document.getElementById('qrCanvas');
-
-  if (video.readyState !== video.HAVE_ENOUGH_DATA || video.videoWidth === 0) {
-    _qrScanTimer = setTimeout(scanQrTick, 100);
-    return;
-  }
-
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-  // jsQR is loaded in <head> — always available
-  const code = jsQR(imageData.data, imageData.width, imageData.height, {
-    inversionAttempts: 'dontInvert',
-  });
-
-  if (code && code.data) {
-    qrDetected(code.data);
-  } else {
-    // Scan every 150ms — fast enough to be responsive, not so fast it blocks the UI
-    _qrScanTimer = setTimeout(scanQrTick, 150);
-  }
-}
-
-function qrDetected(value) {
-  closeQrScanner();
-  const el = document.getElementById(_qrTargetId);
-  if (el) {
-    el.value = value;
-    el.dispatchEvent(new Event('input'));
-    updateModalStatus();
-  }
-  showToast('QR scanned: ' + value, 'success');
+  const input = document.getElementById('qrCaptureInput');
+  // Reset so the same file can be re-selected if needed
+  input.value = '';
+  input.click();
 }
 
 function closeQrScanner() {
-  _qrActive = false;
-  if (_qrScanTimer) { clearTimeout(_qrScanTimer); _qrScanTimer = null; }
-  if (_qrStream)    { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
-  const video = document.getElementById('qrVideo');
-  video.srcObject = null;
-  document.getElementById('qrOverlay').style.display = 'none';
   _qrTargetId = null;
+  document.getElementById('qrCaptureInput').value = '';
 }
 
 function loadScript(src) {
@@ -1755,6 +1672,40 @@ function loadScript(src) {
     const s = document.createElement('script');
     s.src = src; s.onload = resolve; s.onerror = reject;
     document.head.appendChild(s);
+  });
+}
+
+// Set up the file input handler once the DOM is ready
+function setupQrInput() {
+  const input = document.getElementById('qrCaptureInput');
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file || !_qrTargetId) return;
+
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.getElementById('qrCanvas');
+    canvas.width  = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'attemptBoth',
+    });
+
+    if (code && code.data) {
+      const el = document.getElementById(_qrTargetId);
+      if (el) {
+        el.value = code.data;
+        el.dispatchEvent(new Event('input'));
+        updateModalStatus();
+      }
+      showToast('QR scanned: ' + code.data, 'success');
+    } else {
+      showToast('No QR code found in image — try again', 'error');
+    }
+    closeQrScanner();
   });
 }
 
