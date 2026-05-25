@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.28</div>
+  <div class="version-badge">v2.5.18</div>
   <div class="spacer"></div>
 </header>
 
@@ -10537,14 +10537,9 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div style="position:absolute;top:25%;left:25%;right:25%;bottom:25%;border:2px solid rgba(88,166,255,0.6);border-radius:4px;pointer-events:none;"></div>
   </div>
   <div id="qrStatus" style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0;flex-shrink:0;">Aim the QR code at the centre box</div>
-  <div style="display:flex;gap:8px;flex-shrink:0;margin-bottom:4px;">
-    <button class="primary" onclick="capturePhoto()" style="font-size:13px;padding:9px 18px;">📸 Take Photo</button>
-    <button class="ghost" onclick="closeQrScanner()">Cancel</button>
-  </div>
-  <div style="font-size:11px;color:var(--muted);text-align:center;flex-shrink:0;">Live scan runs automatically. Use Take Photo for small or tricky codes.</div>
-  <div id="qrDebugPanel" style="width:min(90vw,360px);flex-shrink:0;background:rgba(0,0,0,0.7);border:1px solid #30363d;border-radius:6px;padding:10px 12px;min-height:160px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:13px;color:#7d8590;line-height:1.8;"></div>
+  <div id="qrDebugPanel" style="width:min(90vw,360px);flex-shrink:0;background:rgba(0,0,0,0.7);border:1px solid #30363d;border-radius:6px;padding:10px 12px;min-height:200px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:13px;color:#7d8590;line-height:1.8;"></div>
+  <button class="ghost" onclick="closeQrScanner()" style="margin-top:12px;flex-shrink:0;">Cancel</button>
 </div>
-<input type="file" id="qrPhotoInput" accept="image/*" capture="environment" style="display:none">
 <canvas id="qrCanvas" style="display:none;width:min(90vw,360px);border:1px solid #f85149;border-radius:6px;margin-top:8px;"></canvas>
 
 <div class="toast" id="toast"></div>
@@ -11833,124 +11828,75 @@ async function doScan() {
   }
 
   _scanCount++;
-  if (_scanCount === 1) qrLog('scan starting');
 
   const canvas = document.getElementById('qrCanvas');
   const vw = video.videoWidth;
   const vh = video.videoHeight;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-  let ctx;
-  try {
-    ctx = canvas.getContext('2d', { willReadFrequently: true });
-    canvas.width  = vw;
-    canvas.height = vh;
-    ctx.drawImage(video, 0, 0);
-  } catch(e) {
-    qrLog('draw err: ' + e.message, '#f85149');
-    scheduleScan(); return;
-  }
-
-  // Keep canvas visible so engineer can see exactly what jsQR is processing
-  canvas.style.display = 'block';
-  canvas.style.height  = 'auto';
-
-  if (_scanCount === 1) qrLog('draw OK, starting crops');
-  // Crops to try:
-  // 1. Full frame and centre crops (for single QR codes at various sizes)
-  // 2. Left half and right half (for side-by-side dual QR code labels)
-  // 3. Left/right halves of centre 50% (handles smaller dual QR labels)
-  const hw = Math.round(vw / 2);
-  const crops = [
-    { label: 'full',  sx: 0,          sy: 0,          sw: vw,       sh: vh       },
-    { label: 'left',  sx: 0,          sy: 0,          sw: hw,       sh: vh       },
-    { label: 'right', sx: hw,         sy: 0,          sw: hw,       sh: vh       },
-    { label: 'c75',   sx: vw * 0.125, sy: vh * 0.125, sw: vw * 0.75, sh: vh * 0.75 },
-    { label: 'c50',   sx: vw * 0.25,  sy: vh * 0.25,  sw: vw * 0.5,  sh: vh * 0.5  },
-    { label: 'c50L',  sx: vw * 0.25,  sy: vh * 0.25,  sw: vw * 0.25, sh: vh * 0.5  },
-    { label: 'c50R',  sx: vw * 0.5,   sy: vh * 0.25,  sw: vw * 0.25, sh: vh * 0.5  },
-    { label: 'c33',   sx: vw * 0.33,  sy: vh * 0.33,  sw: vw * 0.33, sh: vh * 0.33 },
-  ];
-
-  // Use the main canvas context directly for crops — avoids createElement issues
-  for (const crop of crops) {
-    const sw = Math.round(crop.sw);
-    const sh = Math.round(crop.sh);
-    const sx = Math.round(crop.sx);
-    const sy = Math.round(crop.sy);
-    if (sw < 10 || sh < 10) { qrLog(crop.label + ' skip'); continue; }
-
-    // Resize main canvas to crop dimensions, draw the cropped region at native size
-    // (no upscaling — jsQR works better with native pixel density)
-    canvas.width  = sw;
-    canvas.height = sh;
-    try {
-      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-    } catch(e) {
-      qrLog(crop.label + ' draw err: ' + e.message, '#f85149'); continue;
-    }
-
-    let imageData;
-    try {
-      imageData = ctx.getImageData(0, 0, sw, sh);
-    } catch(e) {
-      qrLog(crop.label + ' getData err: ' + e.message, '#f85149'); continue;
-    }
-
-    if (_scanCount <= 5) qrLog(crop.label + ' ' + sw + 'x' + sh + ' data=' + (imageData ? imageData.data.length : 'null'));
-
-    if (!imageData || !imageData.data || imageData.data.length < 4) {
-      qrLog(crop.label + ' bad imageData', '#f85149'); continue;
-    }
-
-    // Try ZXing first (better small QR support), then jsQR as fallback
-    let decoded = null;
-
-    if (typeof ZXing !== 'undefined') {
-      const luminanceSrc = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
-      // Try both binarizers — HybridBinarizer works better in good light,
-      // GlobalHistogramBinarizer works better in uneven/low light
-      for (const BinClass of [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer]) {
-        if (decoded) break;
-        const bitmap = new ZXing.BinaryBitmap(new BinClass(luminanceSrc));
-        // Try DataMatrixReader first (dedicated, more reliable for DM codes)
-        for (const ReaderClass of [ZXing.DataMatrixReader, ZXing.MultiFormatReader]) {
-          if (decoded) break;
-          try {
-            const hints = new Map();
-            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-            const reader = new ReaderClass();
-            reader.setHints(hints);
-            const result = reader.decode(bitmap);
-            if (result && result.getText()) decoded = result.getText();
-          } catch(e) {
-            if (e.name !== 'NotFoundException' && _scanCount <= 5) {
-              qrLog(ReaderClass.name + '/' + BinClass.name + ': ' + e.name);
-            }
-          }
-        }
-      }
-    }
-
-    if (!decoded) {
-      for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
-        let code;
-        try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); }
-        catch(e) { break; }
-        if (code && code.data) { decoded = code.data; break; }
-      }
-    }
-
-    if (decoded) {
-      qrLog('✓ ' + crop.label + ': ' + decoded, '#3fb950');
-      qrDetected(decoded);
-      return;
-    }
-    if (_scanCount <= 5) qrLog(crop.label + '→empty');
-  }
-
-  // Restore canvas to full frame size for next scan
+  // Grab frame — try multiple draw methods for Android Chrome compatibility
   canvas.width  = vw;
   canvas.height = vh;
+
+  // Method 1: direct drawImage
+  ctx.drawImage(video, 0, 0);
+
+  // Check if frame has content by sampling centre pixels
+  const sampleDirect = ctx.getImageData(Math.floor(vw/2), Math.floor(vh/2), 8, 8);
+  const directOk = sampleDirect.data.some(v => v > 10);
+
+  if (!directOk) {
+    // Method 2: draw inside rAF
+    await new Promise(resolve => requestAnimationFrame(() => {
+      ctx.drawImage(video, 0, 0);
+      resolve();
+    }));
+    const sampleRaf = ctx.getImageData(Math.floor(vw/2), Math.floor(vh/2), 8, 8);
+    const rafOk = sampleRaf.data.some(v => v > 10);
+    if (_scanCount <= 3) qrLog('direct=' + directOk + ' rAF=' + rafOk);
+    if (!rafOk) { scheduleScan(); return; }
+  }
+
+  // Show canvas preview on first scans
+  if (_scanCount <= 5) {
+    canvas.style.display = 'block';
+    canvas.style.height  = 'auto';
+  }
+
+  // Log centre pixel values on first scan so we know what jsQR is seeing
+  if (_scanCount === 1) {
+    const px = ctx.getImageData(Math.floor(vw/2), Math.floor(vh/2), 1, 1).data;
+    qrLog('centre px: r=' + px[0] + ' g=' + px[1] + ' b=' + px[2]);
+  }
+
+  // Try jsQR at multiple crop levels — each crop is scaled UP to full resolution
+  const crops = [
+    { label: 'full', sx: 0,          sy: 0,          sw: vw,       sh: vh       },
+    { label: 'c75',  sx: vw * 0.125, sy: vh * 0.125, sw: vw * 0.75, sh: vh * 0.75 },
+    { label: 'c50',  sx: vw * 0.25,  sy: vh * 0.25,  sw: vw * 0.5,  sh: vh * 0.5  },
+    { label: 'c33',  sx: vw * 0.33,  sy: vh * 0.33,  sw: vw * 0.33, sh: vh * 0.33 },
+    { label: 'c25',  sx: vw * 0.375, sy: vh * 0.375, sw: vw * 0.25, sh: vh * 0.25 },
+  ];
+
+  const cropCanvas = document.createElement('canvas');
+  const cropCtx    = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+  for (const crop of crops) {
+    cropCanvas.width  = vw;
+    cropCanvas.height = vh;
+    cropCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, vw, vh);
+    const imageData = cropCtx.getImageData(0, 0, vw, vh);
+
+    for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
+      const code = jsQR(imageData.data, vw, vh, { inversionAttempts: inv });
+      if (code && code.data) {
+        qrLog('✓ ' + crop.label + '/' + inv + ': ' + code.data, '#3fb950');
+        qrDetected(code.data);
+        return;
+      }
+    }
+    if (_scanCount <= 3) qrLog(crop.label + '→empty');
+  }
 
   scheduleScan();
 }
@@ -11979,97 +11925,8 @@ function closeQrScanner() {
   _qrTargetId = null;
 }
 
-function capturePhoto() {
-  document.getElementById('qrPhotoInput').value = '';
-  document.getElementById('qrPhotoInput').click();
-}
-
 function setupQrInput() {
   qrLog('jsQR ' + (typeof jsQR === 'function' ? 'loaded' : 'MISSING'));
-  qrLog('ZXing ' + (typeof ZXing !== 'undefined' ? 'loaded' : 'MISSING'));
-
-  // Photo decode handler
-  document.getElementById('qrPhotoInput').addEventListener('change', async () => {
-    const file = document.getElementById('qrPhotoInput').files[0];
-    if (!file) return;
-    qrLog('photo received, decoding…', '#d29922');
-
-    const img = await new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const i = new Image();
-        i.onload = () => res(i);
-        i.onerror = rej;
-        i.src = reader.result;
-      };
-      reader.onerror = rej;
-      reader.readAsDataURL(file);
-    });
-
-    qrLog('photo ' + img.naturalWidth + 'x' + img.naturalHeight);
-
-    const c   = document.getElementById('qrCanvas');
-    const ctx = c.getContext('2d', { willReadFrequently: true });
-    const pw  = img.naturalWidth;
-    const ph  = img.naturalHeight;
-    const phw = Math.round(pw / 2);
-
-    // Try full photo, left half, right half, and centre crops — all at native resolution
-    const photoCrops = [
-      { label: 'photo-full',  sx: 0,           sy: 0, sw: pw,  sh: ph },
-      { label: 'photo-left',  sx: 0,           sy: 0, sw: phw, sh: ph },
-      { label: 'photo-right', sx: phw,          sy: 0, sw: phw, sh: ph },
-      { label: 'photo-c50',   sx: pw * 0.25,   sy: ph * 0.25, sw: pw * 0.5, sh: ph * 0.5 },
-      { label: 'photo-c50L',  sx: pw * 0.25,   sy: ph * 0.25, sw: pw * 0.25, sh: ph * 0.5 },
-      { label: 'photo-c50R',  sx: pw * 0.5,    sy: ph * 0.25, sw: pw * 0.25, sh: ph * 0.5 },
-    ];
-
-    for (const crop of photoCrops) {
-      const sw = Math.round(crop.sw);
-      const sh = Math.round(crop.sh);
-      if (sw < 10 || sh < 10) continue;
-      c.width  = sw;
-      c.height = sh;
-      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, sw, sh);
-      let imageData;
-      try { imageData = ctx.getImageData(0, 0, sw, sh); } catch(e) { continue; }
-      let decoded = null;
-      if (typeof ZXing !== 'undefined') {
-        const luminanceSrc = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
-        for (const BinClass of [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer]) {
-          if (decoded) break;
-          const bitmap = new ZXing.BinaryBitmap(new BinClass(luminanceSrc));
-          for (const ReaderClass of [ZXing.DataMatrixReader, ZXing.MultiFormatReader]) {
-            if (decoded) break;
-            try {
-              const hints = new Map();
-              hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-              const reader = new ReaderClass();
-              reader.setHints(hints);
-              const result = reader.decode(bitmap);
-              if (result && result.getText()) decoded = result.getText();
-            } catch(e) {
-              if (e.name !== 'NotFoundException') qrLog(ReaderClass.name + ': ' + e.name);
-            }
-          }
-        }
-      }
-      if (!decoded) {
-        for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
-          let code;
-          try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); } catch(e) { continue; }
-          if (code && code.data) { decoded = code.data; break; }
-        }
-      }
-      if (decoded) {
-        qrLog('✓ ' + crop.label + ': ' + decoded, '#3fb950');
-        qrDetected(decoded);
-        return;
-      }
-      qrLog(crop.label + '→empty');
-    }
-    qrLog('photo: no QR found', '#f85149');
-  });
 }
 
 init();
