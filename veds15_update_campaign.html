@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.10</div>
+  <div class="version-badge">v2.5.11</div>
   <div class="spacer"></div>
 </header>
 
@@ -11838,45 +11838,54 @@ async function doScan() {
   if (!_qrActive) return;
   const video = document.getElementById('qrVideo');
   if (!video || video.readyState < 2 || video.videoWidth === 0) {
-    if (_scanCount === 0) qrLog('Waiting… readyState=' + (video ? video.readyState : 'null') + ' size=' + (video ? video.videoWidth+'x'+video.videoHeight : '?'));
+    if (_scanCount === 0) qrLog('Waiting… state=' + (video ? video.readyState : 'null'));
     scheduleScan(); return;
   }
 
   _scanCount++;
-  if (_scanCount <= 3 || _scanCount % 20 === 0) qrLog('#' + _scanCount + ' video=' + video.videoWidth + 'x' + video.videoHeight + ' state=' + video.readyState + ' paused=' + video.paused);
-
-  try {
-    const codes = await _qrDetector.detect(video);
-    if (codes.length > 0) qrLog('DETECTED: ' + codes[0].rawValue, '#3fb950'); else if (_scanCount <= 3) qrLog('detect() → empty array');
-    if (codes && codes.length > 0 && codes[0].rawValue) {
-      qrDetected(codes[0].rawValue);
-    } else {
-      // Also try passing a canvas snapshot in case detect(video) has issues on this device
-      if (_scanCount === 5) { qrLog('Trying canvas snapshot…', '#d29922'); tryCanvasDetect(); }
-      scheduleScan();
-    }
-  } catch(e) {
-    qrLog('Scan error: ' + e.name + ': ' + e.message, '#f85149');
-    if (_scanCount > 3) tryCanvasDetect();
-    scheduleScan();
+  if (_scanCount <= 3 || _scanCount % 20 === 0) {
+    qrLog('#' + _scanCount + ' ' + video.videoWidth + 'x' + video.videoHeight);
   }
-}
 
-async function tryCanvasDetect() {
-  const video  = document.getElementById('qrVideo');
+  // Always use canvas snapshot — more reliable than passing video element directly
   const canvas = document.getElementById('qrCanvas');
-  if (!video || !canvas) return;
   canvas.width  = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(video, 0, 0);
+
+  // Try detect on canvas
   try {
     const codes = await _qrDetector.detect(canvas);
-    qrLog('Canvas detect: ' + JSON.stringify(codes.map(c=>c.rawValue)), codes.length ? '#3fb950' : '#7d8590');
-    if (codes && codes.length > 0 && codes[0].rawValue) qrDetected(codes[0].rawValue);
+    if (_scanCount <= 3) qrLog('canvas→' + (codes.length ? 'FOUND' : 'empty'));
+    if (codes.length > 0 && codes[0].rawValue) {
+      qrLog('✓ ' + codes[0].rawValue, '#3fb950');
+      qrDetected(codes[0].rawValue);
+      return;
+    }
   } catch(e) {
-    qrLog('Canvas error: ' + e.name + ': ' + e.message, '#f85149');
+    qrLog('canvas err: ' + e.message, '#f85149');
   }
+
+  // Also try detect on ImageBitmap from the canvas (different code path)
+  if (_scanCount <= 5 || _scanCount % 10 === 0) {
+    try {
+      const bmp   = await createImageBitmap(canvas);
+      const codes = await _qrDetector.detect(bmp);
+      if (_scanCount <= 3) qrLog('bitmap→' + (codes.length ? 'FOUND' : 'empty'));
+      if (codes.length > 0 && codes[0].rawValue) {
+        qrLog('✓ bitmap ' + codes[0].rawValue, '#3fb950');
+        qrDetected(codes[0].rawValue);
+        bmp.close();
+        return;
+      }
+      bmp.close();
+    } catch(e) {
+      if (_scanCount <= 3) qrLog('bitmap err: ' + e.message, '#f85149');
+    }
+  }
+
+  scheduleScan();
 }
 
 function qrDetected(value) {
