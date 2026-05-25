@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WrightBus Campaign Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
 :root {
@@ -194,12 +195,13 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.1.4</div>
+  <div class="version-badge">v2.2.0</div>
   <div class="spacer"></div>
 </header>
 
 <div class="tab-bar">
   <div class="tab active" id="tab-tracker" onclick="switchTab('tracker')">📋 Tracker</div>
+  <div class="tab" id="tab-graph" onclick="switchTab('graph')">📈 Graph</div>
   <div class="tab" id="tab-config" onclick="switchTab('config')">⚙ Config</div>
 </div>
 
@@ -218,10 +220,10 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <button id="btnSync" class="primary" onclick="syncCampaignData()" disabled>☁ Sync</button>
   </div>
   <div class="stats-bar">
-    <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">—</strong></div>
-    <div class="stat"><span class="dot progress"></span> In Progress <strong id="statProgress">—</strong></div>
-    <div class="stat"><span class="dot complete"></span> Complete <strong id="statComplete">—</strong></div>
-    <div class="stat" style="margin-left:auto;"><strong id="statTotal">—</strong> <span>vehicles shown</span></div>
+    <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">0</strong></div>
+    <div class="stat"><span class="dot progress"></span> In Progress <strong id="statProgress">0</strong></div>
+    <div class="stat"><span class="dot complete"></span> Complete <strong id="statComplete">0</strong></div>
+    <div class="stat" style="margin-left:auto;"><strong id="statTotal">0</strong> <span>vehicles shown</span></div>
   </div>
   <div class="filter-bar">
     <label>Operator</label>
@@ -239,6 +241,18 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   </div>
   <div id="trackerContent">
     <div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>
+  </div>
+</div>
+
+<!-- ══ GRAPH ══ -->
+<div id="pane-graph" style="display:none;flex:1;overflow-y:auto;">
+  <div style="padding:20px 24px 8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:13px;color:var(--muted);">Campaign progress over time</span>
+    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;">— Select a campaign to view graph —</span>
+  </div>
+  <div style="padding:0 24px 24px;position:relative;min-height:420px;">
+    <canvas id="progressChart"></canvas>
+    <div id="graphEmpty" style="display:none;padding:60px;text-align:center;color:var(--muted);font-size:14px;">No dated records yet. Save engineer entries to populate the graph.</div>
   </div>
 </div>
 
@@ -424,9 +438,12 @@ async function init() {
 // ══ TABS ══
 function switchTab(t) {
   document.getElementById('pane-tracker').style.display = t==='tracker'?'block':'none';
+  document.getElementById('pane-graph').style.display   = t==='graph'  ?'block':'none';
   document.getElementById('pane-config').style.display  = t==='config' ?'block':'none';
   document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
+  document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
   document.getElementById('tab-config').classList.toggle('active',  t==='config');
+  if (t==='graph') renderGraph();
 }
 
 // ══ CAMPAIGN DROPDOWN ══
@@ -445,7 +462,7 @@ function refreshCampaignDropdown() {
 
 async function onCampaignChange() {
   const id = document.getElementById('campaignSelect').value;
-  if (!id) { activeCampaign=null; vehicles=[]; document.getElementById('dropZone').classList.add('disabled'); document.getElementById('btnSync').disabled=true; setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.'); return; }
+  if (!id) { activeCampaign=null; vehicles=[]; document.getElementById('dropZone').classList.add('disabled'); document.getElementById('btnSync').disabled=true; resetStats(); setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.'); return; }
   activeCampaign = campaignList.find(c => c.id === id);
   document.getElementById('dropZone').classList.remove('disabled');
   setTrackerLoading(`Loading ${activeCampaign.name}…`);
@@ -1068,6 +1085,10 @@ function closeAlertModal() {
   document.getElementById('alertModalOverlay').classList.remove('open');
 }
 
+function resetStats() {
+  ['statPending','statProgress','statComplete','statTotal'].forEach(id => { document.getElementById(id).textContent = '0'; });
+}
+
 function setTrackerLoading(msg) { document.getElementById('trackerContent').innerHTML=`<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`; }
 function setTrackerEmpty(t,m)   { document.getElementById('trackerContent').innerHTML=`<div class="empty-state"><strong>${t}</strong>${m}</div>`; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1076,6 +1097,146 @@ let toastTimer;
 function showToast(msg,type='info') {
   const el=document.getElementById('toast'); el.textContent=msg; el.className=`toast ${type} show`;
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ══ GRAPH ══
+let chartInstance = null;
+
+function renderGraph() {
+  const noMsg   = document.getElementById('graphNoCampaign');
+  const emptyEl = document.getElementById('graphEmpty');
+  const canvas  = document.getElementById('progressChart');
+
+  if (!activeCampaign || vehicles.length === 0) {
+    noMsg.style.display   = activeCampaign ? 'none' : '';
+    emptyEl.style.display = activeCampaign ? 'block' : 'none';
+    canvas.style.display  = 'none';
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
+
+  // Build daily snapshot from submitted_date records
+  // For each unique date, count statuses from all vehicles whose submitted_date <= that date
+  const dated = vehicles.filter(v => v.engineer_data && v.engineer_data.submitted_date);
+  if (dated.length === 0) {
+    noMsg.style.display   = 'none';
+    emptyEl.style.display = 'block';
+    canvas.style.display  = 'none';
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
+
+  noMsg.style.display   = 'none';
+  emptyEl.style.display = 'none';
+  canvas.style.display  = 'block';
+
+  // Get sorted unique dates
+  const allDates = [...new Set(dated.map(v => v.engineer_data.submitted_date))].sort();
+
+  // For each date, compute cumulative counts up to and including that date
+  const labels    = [];
+  const pendingPts  = [];
+  const progressPts = [];
+  const completePts = [];
+  const total = vehicles.length;
+
+  allDates.forEach(date => {
+    labels.push(date);
+    let inProg = 0, comp = 0;
+    vehicles.forEach(v => {
+      const sd = v.engineer_data && v.engineer_data.submitted_date;
+      if (sd && sd <= date) {
+        if (v.update_status === 'In Progress') inProg++;
+        else if (v.update_status === 'Complete') comp++;
+      }
+    });
+    completePts.push(comp);
+    progressPts.push(inProg);
+    pendingPts.push(total - inProg - comp);
+  });
+
+  if (chartInstance) chartInstance.destroy();
+
+  const ctx = canvas.getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Complete',
+          data: completePts,
+          fill: 'origin',
+          backgroundColor: 'rgba(63,185,80,0.25)',
+          borderColor: '#3fb950',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#3fb950',
+          tension: 0.3,
+          order: 2,
+        },
+        {
+          label: 'In Progress',
+          data: progressPts.map((v,i) => v + completePts[i]), // stacked on top of complete
+          fill: '-1',  // fill to the previous dataset (Complete)
+          backgroundColor: 'rgba(210,153,34,0.25)',
+          borderColor: '#d29922',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d29922',
+          tension: 0.3,
+          order: 1,
+        },
+        {
+          label: 'Pending',
+          data: pendingPts,
+          fill: false,
+          borderColor: '#f85149',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#f85149',
+          tension: 0.3,
+          order: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#e6edf3', font: { family: 'Inter', size: 12 }, boxWidth: 14 },
+        },
+        tooltip: {
+          backgroundColor: '#161b22',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#e6edf3',
+          bodyColor: '#7d8590',
+          callbacks: {
+            label: ctx => {
+              const ds = ctx.dataset.label;
+              let val = ctx.parsed.y;
+              if (ds === 'In Progress') val = val - completePts[ctx.dataIndex];
+              return ` ${ds}: ${val}`;
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#7d8590', font: { family: 'Share Tech Mono', size: 11 } },
+          grid:  { color: 'rgba(48,54,61,0.6)' },
+        },
+        y: {
+          beginAtZero: true,
+          max: total,
+          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, stepSize: 1 },
+          grid:  { color: 'rgba(48,54,61,0.6)' },
+        },
+      },
+    },
+  });
 }
 
 init();
