@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.21</div>
+  <div class="version-badge">v2.5.22</div>
   <div class="spacer"></div>
 </header>
 
@@ -11861,46 +11861,53 @@ async function doScan() {
     { label: 'c25',  sx: vw * 0.375, sy: vh * 0.375, sw: vw * 0.25, sh: vh * 0.25 },
   ];
 
-  const cropCanvas = document.createElement('canvas');
-  const cropCtx    = cropCanvas.getContext('2d', { willReadFrequently: true });
-
+  // Use the main canvas context directly for crops — avoids createElement issues
   for (const crop of crops) {
     const sw = Math.round(crop.sw);
     const sh = Math.round(crop.sh);
     const sx = Math.round(crop.sx);
     const sy = Math.round(crop.sy);
-    if (sw < 10 || sh < 10) { qrLog(crop.label + ' skip (too small: ' + sw + 'x' + sh + ')'); continue; }
+    if (sw < 10 || sh < 10) { qrLog(crop.label + ' skip'); continue; }
 
-    // Draw crop scaled up to full frame resolution
-    cropCanvas.width  = vw;
-    cropCanvas.height = vh;
-    cropCtx.clearRect(0, 0, vw, vh);
-    cropCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, vw, vh);
+    // Resize main canvas to crop dimensions, draw the cropped region at native size
+    // (no upscaling — jsQR works better with native pixel density)
+    canvas.width  = sw;
+    canvas.height = sh;
+    try {
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+    } catch(e) {
+      qrLog(crop.label + ' draw err: ' + e.message, '#f85149'); continue;
+    }
 
     let imageData;
     try {
-      imageData = cropCtx.getImageData(0, 0, vw, vh);
+      imageData = ctx.getImageData(0, 0, sw, sh);
     } catch(e) {
-      qrLog(crop.label + ' getImageData err: ' + e.message, '#f85149');
-      continue;
+      qrLog(crop.label + ' getData err: ' + e.message, '#f85149'); continue;
     }
-    if (!imageData || !imageData.data || imageData.data.length === 0) {
-      qrLog(crop.label + ' empty imageData', '#f85149');
-      continue;
+
+    if (_scanCount <= 5) qrLog(crop.label + ' ' + sw + 'x' + sh + ' data=' + (imageData ? imageData.data.length : 'null'));
+
+    if (!imageData || !imageData.data || imageData.data.length < 4) {
+      qrLog(crop.label + ' bad imageData', '#f85149'); continue;
     }
 
     for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
       let code;
-      try { code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: inv }); }
-      catch(e) { qrLog('jsQR err ' + crop.label + ': ' + e.message, '#f85149'); break; }
+      try { code = jsQR(imageData.data, sw, sh, { inversionAttempts: inv }); }
+      catch(e) { qrLog('jsQR err: ' + e.message, '#f85149'); break; }
       if (code && code.data) {
-        qrLog('✓ ' + crop.label + '/' + inv + ': ' + code.data, '#3fb950');
+        qrLog('✓ ' + crop.label + ': ' + code.data, '#3fb950');
         qrDetected(code.data);
         return;
       }
     }
-    if (_scanCount <= 10) qrLog(crop.label + '→empty (' + vw + 'x' + vh + ')');
+    if (_scanCount <= 5) qrLog(crop.label + '→empty');
   }
+
+  // Restore canvas to full frame size for next scan
+  canvas.width  = vw;
+  canvas.height = vh;
 
   scheduleScan();
 }
