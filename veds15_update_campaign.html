@@ -195,7 +195,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.2.1</div>
+  <div class="version-badge">v2.2.2</div>
   <div class="spacer"></div>
 </header>
 
@@ -349,6 +349,20 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div style="padding:20px 22px;font-size:14px;color:var(--text);line-height:1.6;" id="alertModalBody"></div>
     <div class="modal-footer" style="justify-content:flex-end;">
       <button class="primary" onclick="closeAlertModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirmModalOverlay">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div><h2 id="confirmModalTitle">Confirm</h2></div>
+      <button class="modal-close" onclick="closeConfirmModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;font-size:14px;color:var(--text);line-height:1.6;" id="confirmModalBody"></div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button onclick="closeConfirmModal()">Cancel</button>
+      <button class="danger" id="confirmModalOkBtn" style="margin-left:8px;">Delete</button>
     </div>
   </div>
 </div>
@@ -764,6 +778,7 @@ function renderCampaignList() {
         </div>
         <span class="camp-status-badge ${c.status}" onclick="event.stopPropagation();toggleCampaignStatus('${c.id}')">${c.status.toUpperCase()}</span>
         <button class="ghost" style="font-size:12px;padding:5px 10px;" onclick="event.stopPropagation();openEditModal('${c.id}')">✏ Edit</button>
+        <button class="danger" style="font-size:12px;padding:5px 10px;" onclick="event.stopPropagation();deleteCampaign('${c.id}')">🗑 Delete</button>
       </div>
       ${preview ? `<div class="camp-preview">${preview}</div>` : ''}
     `;
@@ -785,6 +800,52 @@ async function toggleCampaignStatus(id) {
     renderCampaignList(); refreshCampaignDropdown();
     showToast(`"${c.name}" marked as ${c.status}`,'success');
   } catch(e) { c.status=c.status==='open'?'closed':'open'; showToast('Update failed: '+e.message,'error'); }
+}
+
+async function deleteCampaign(id) {
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+
+  // Check for any In Progress or Complete records
+  try {
+    const data = await sbGet(c.fileName);
+    const records = data && Array.isArray(data) ? data : [];
+    const hasStarted = records.some(v => v.update_status === 'In Progress' || v.update_status === 'Complete');
+    if (hasStarted) {
+      showAlertModal('Cannot Delete Campaign', 'Campaign has started, editing not allowed.');
+      return;
+    }
+  } catch(e) {
+    showToast('Could not verify campaign status: ' + e.message, 'error');
+    return;
+  }
+
+  // Confirm deletion
+  showConfirmModal(
+    'Delete Campaign',
+    `Are you sure you want to delete "${c.name}"? This cannot be undone.`,
+    async () => {
+      campaignList = campaignList.filter(x => x.id !== id);
+      try {
+        await sbPut(CAMP_LIST_FILE, campaignList);
+        // If this was the active campaign, clear it
+        if (activeCampaign && activeCampaign.id === id) {
+          activeCampaign = null;
+          vehicles = [];
+          document.getElementById('dropZone').classList.add('disabled');
+          document.getElementById('btnSync').disabled = true;
+          resetStats();
+          setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
+        }
+        refreshCampaignDropdown();
+        renderCampaignList();
+        showToast(`"${c.name}" deleted`, 'success');
+      } catch(e) {
+        campaignList.push(c); // revert
+        showToast('Delete failed: ' + e.message, 'error');
+      }
+    }
+  );
 }
 
 // ══ EDIT CAMPAIGN MODAL ══
@@ -1089,6 +1150,17 @@ function showAlertModal(title, body) {
 }
 function closeAlertModal() {
   document.getElementById('alertModalOverlay').classList.remove('open');
+}
+
+function showConfirmModal(title, body, onConfirm) {
+  document.getElementById('confirmModalTitle').textContent = title;
+  document.getElementById('confirmModalBody').textContent  = body;
+  const btn = document.getElementById('confirmModalOkBtn');
+  btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+  document.getElementById('confirmModalOverlay').classList.add('open');
+}
+function closeConfirmModal() {
+  document.getElementById('confirmModalOverlay').classList.remove('open');
 }
 
 function resetStats() {
