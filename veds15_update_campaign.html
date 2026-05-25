@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.5</div>
+  <div class="version-badge">v2.5.6</div>
   <div class="spacer"></div>
 </header>
 
@@ -10528,8 +10528,17 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   </div>
 </div>
 
-<!-- Hidden file input for QR capture — triggers native camera/QR on mobile -->
-<input type="file" id="qrCaptureInput" accept="image/*" capture="environment" style="display:none">
+<!-- QR Scanner overlay -->
+<div id="qrOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+  <div style="font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--muted);text-align:center;letter-spacing:1px;">SCANNING FOR<br><span style="color:var(--accent);font-size:16px;font-weight:700;" id="qrTargetLabel"></span></div>
+  <div style="position:relative;width:min(90vw,360px);">
+    <video id="qrVideo" autoplay playsinline muted style="width:100%;border-radius:10px;display:block;"></video>
+    <div style="position:absolute;inset:0;border:2px solid var(--accent);border-radius:10px;pointer-events:none;"></div>
+    <div style="position:absolute;top:25%;left:25%;right:25%;bottom:25%;border:2px solid rgba(88,166,255,0.6);border-radius:4px;pointer-events:none;"></div>
+  </div>
+  <div id="qrStatus" style="font-size:12px;color:var(--muted);text-align:center;">Aim the QR code at the centre box</div>
+  <button class="ghost" onclick="closeQrScanner()">Cancel</button>
+</div>
 <canvas id="qrCanvas" style="display:none;"></canvas>
 
 <div class="toast" id="toast"></div>
@@ -11750,100 +11759,104 @@ function renderGraph() {
 }
 
 // ══ QR SCANNER ══
-// Uses native file capture (input[capture=environment]) to invoke the device camera.
-// The captured image is decoded with jsQR on a canvas.
-let _qrTargetId = null;
+let _qrTargetId  = null;
+let _qrStream    = null;
+let _qrScanTimer = null;
+let _qrDetector  = null;
+let _qrActive    = false;
 
 function openQrScanner(fieldId, fieldLabel) {
+  if (!window.BarcodeDetector) {
+    showToast('QR scanning not supported on this browser. Try Chrome on Android.', 'error');
+    return;
+  }
   _qrTargetId = fieldId;
-  const input = document.getElementById('qrCaptureInput');
-  // Reset so the same file can be re-selected if needed
-  input.value = '';
-  input.click();
+  _qrActive   = true;
+  document.getElementById('qrTargetLabel').textContent = fieldLabel;
+  document.getElementById('qrStatus').textContent      = 'Starting camera…';
+  document.getElementById('qrOverlay').style.display   = 'flex';
+
+  // Create detector once
+  try {
+    _qrDetector = new BarcodeDetector({ formats: ['qr_code'] });
+  } catch(e) {
+    showToast('BarcodeDetector init failed: ' + e.message, 'error');
+    closeQrScanner(); return;
+  }
+
+  navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+  }).then(stream => {
+    if (!_qrActive) { stream.getTracks().forEach(t => t.stop()); return; }
+    _qrStream = stream;
+    const video = document.getElementById('qrVideo');
+    video.srcObject = stream;
+    video.play().then(() => {
+      document.getElementById('qrStatus').textContent = 'Aim the QR code at the centre box';
+      scheduleScan();
+    });
+  }).catch(e => {
+    closeQrScanner();
+    showToast('Camera error: ' + e.message, 'error');
+  });
+}
+
+function scheduleScan() {
+  if (!_qrActive) return;
+  _qrScanTimer = setTimeout(doScan, 200);
+}
+
+async function doScan() {
+  if (!_qrActive) return;
+  const video = document.getElementById('qrVideo');
+  if (!video || video.readyState < 2 || video.videoWidth === 0) { scheduleScan(); return; }
+
+  try {
+    const codes = await _qrDetector.detect(video);
+    if (codes && codes.length > 0 && codes[0].rawValue) {
+      qrDetected(codes[0].rawValue);
+    } else {
+      scheduleScan();
+    }
+  } catch(e) {
+    // Detection error — keep scanning but log it
+    console.warn('BarcodeDetector scan error:', e);
+    scheduleScan();
+  }
+}
+
+function qrDetected(value) {
+  closeQrScanner();
+  const el = document.getElementById(_qrTargetId);
+  if (el) {
+    el.value = value;
+    el.dispatchEvent(new Event('input'));
+    updateModalStatus();
+  }
+  showToast('QR scanned: ' + value, 'success');
 }
 
 function closeQrScanner() {
+  _qrActive = false;
+  if (_qrScanTimer) { clearTimeout(_qrScanTimer); _qrScanTimer = null; }
+  if (_qrStream)    { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
+  const video = document.getElementById('qrVideo');
+  if (video) video.srcObject = null;
+  document.getElementById('qrOverlay').style.display = 'none';
   _qrTargetId = null;
-  document.getElementById('qrCaptureInput').value = '';
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = src; s.onload = resolve; s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-// Set up the file input handler once the DOM is ready
-// Load image from File into an HTMLImageElement via FileReader (works on all browsers)
-function loadImageFromFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read image file'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Could not decode image'));
-      img.onload  = () => resolve(img);
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
+  _qrDetector = null;
 }
 
 function setupQrInput() {
-  const input = document.getElementById('qrCaptureInput');
-  input.addEventListener('change', async () => {
-    const file = input.files[0];
-    if (!file || !_qrTargetId) return;
-    showToast('Decoding image…', 'info');
-
-    try {
-      if (typeof jsQR !== 'function') throw new Error('QR decoder not available');
-
-      const img    = await loadImageFromFile(file);
-      const canvas = document.getElementById('qrCanvas');
-      const ctx    = canvas.getContext('2d', { willReadFrequently: true });
-
-      // Try at multiple scales — phone cameras produce very large images;
-      // jsQR works best on images scaled to roughly the QR code size.
-      const MAX_SIZES = [1024, 800, 600, 400, 300];
-      let result = null;
-
-      for (const maxDim of MAX_SIZES) {
-        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.max(1, Math.round(img.naturalWidth  * scale));
-        const h = Math.max(1, Math.round(img.naturalHeight * scale));
-        canvas.width  = w;
-        canvas.height = h;
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
-
-        for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
-          const code = jsQR(imageData.data, w, h, { inversionAttempts: inv });
-          if (code && code.data) { result = code.data; break; }
-        }
-        if (result) break;
-      }
-
-      if (result) {
-        const el = document.getElementById(_qrTargetId);
-        if (el) {
-          el.value = result;
-          el.dispatchEvent(new Event('input'));
-          updateModalStatus();
-        }
-        showToast('QR scanned: ' + result, 'success');
-      } else {
-        showToast('No QR code found — ensure the code is clear and well-lit, then try again', 'error');
-      }
-    } catch(e) {
-      showToast('Decode error: ' + e.message, 'error');
-    }
-    closeQrScanner();
-  });
+  // Check support on load and warn early
+  if (!window.BarcodeDetector) {
+    console.warn('BarcodeDetector not available on this browser');
+  } else {
+    BarcodeDetector.getSupportedFormats().then(formats => {
+      console.log('BarcodeDetector supported formats:', formats);
+    });
+  }
 }
 
 init();
