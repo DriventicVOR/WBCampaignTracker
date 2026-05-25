@@ -62,10 +62,17 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .stat .dot.progress{background:var(--progress);}
 .stat .dot.complete{background:var(--complete);}
 .stat strong{color:var(--text);font-size:15px;font-family:'Share Tech Mono';}
-.filter-bar{padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);}
-.filter-bar label{font-size:13px;color:var(--muted);}
-.filter-bar select{min-width:160px;}
-.search-input{font-family:'Share Tech Mono',monospace;font-size:13px;width:150px;}
+.filter-bar{padding:10px 24px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.filter-item{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.filter-item label{font-size:13px;color:var(--muted);white-space:nowrap;}
+.filter-item select{min-width:160px;}
+.filter-item input{width:150px;}
+.search-input{font-family:'Share Tech Mono',monospace;font-size:13px;}
+@media(max-width:600px){
+  .filter-bar{padding:8px 12px;gap:6px;}
+  .filter-item{flex:1 1 100%;}
+  .filter-item select,.filter-item input{flex:1;min-width:0;width:100%;}
+}
 .grid-wrap{padding:20px 24px;overflow-y:auto;flex:1;}
 .grid-section{margin-bottom:28px;}
 .grid-section h3{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
@@ -204,7 +211,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.3.2</div>
+  <div class="version-badge">v2.3.3</div>
   <div class="spacer"></div>
 </header>
 
@@ -235,18 +242,27 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="stat" style="margin-left:auto;"><strong id="statTotal">0</strong> <span>vehicles shown</span></div>
   </div>
   <div class="filter-bar">
-    <label>Operator</label>
-    <select id="operatorFilter" onchange="renderGrid()"><option value="">— All —</option></select>
-    <label style="margin-left:8px;">Depot</label>
-    <select id="depotFilter" onchange="renderGrid()"><option value="">— All —</option></select>
-    <label style="margin-left:8px;">Status</label>
-    <select id="statusFilter" onchange="renderGrid()">
-      <option value="">— All —</option>
-      <option value="Pending">Pending</option>
-      <option value="In Progress">In Progress</option>
-      <option value="Complete">Complete</option>
-    </select>
-    <input class="search-input" id="searchInput" type="text" placeholder="Search body #..." oninput="renderGrid()">
+    <div class="filter-item">
+      <label>Operator</label>
+      <select id="operatorFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Depot</label>
+      <select id="depotFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Status</label>
+      <select id="statusFilter" onchange="renderGrid()">
+        <option value="">— All —</option>
+        <option value="Pending">Pending</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Complete">Complete</option>
+      </select>
+    </div>
+    <div class="filter-item">
+      <label>Search</label>
+      <input class="search-input" id="searchInput" type="text" placeholder="Body #..." oninput="renderGrid()">
+    </div>
   </div>
   <div id="trackerContent">
     <div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>
@@ -256,12 +272,19 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 <!-- ══ GRAPH ══ -->
 <div id="pane-graph" style="display:none;flex:1;overflow-y:auto;">
   <div class="filter-bar">
-    <label>Operator</label>
-    <select id="graphOperatorFilter" onchange="renderGraph()"><option value="">— All —</option></select>
-    <label style="margin-left:8px;">Depot</label>
-    <select id="graphDepotFilter" onchange="renderGraph()"><option value="">— All —</option></select>
-    <input class="search-input" id="graphSearchInput" type="text" placeholder="Search body #..." oninput="renderGraph()" style="margin-left:8px;">
-    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;margin-left:8px;">— Select a campaign to view graph —</span>
+    <div class="filter-item">
+      <label>Operator</label>
+      <select id="graphOperatorFilter" onchange="renderGraph()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Depot</label>
+      <select id="graphDepotFilter" onchange="renderGraph()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Search</label>
+      <input class="search-input" id="graphSearchInput" type="text" placeholder="Body #..." oninput="renderGraph()">
+    </div>
+    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;">— Select a campaign to view graph —</span>
   </div>
   <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
     <canvas id="progressChart"></canvas>
