@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.13</div>
+  <div class="version-badge">v2.5.14</div>
   <div class="spacer"></div>
 </header>
 
@@ -11817,7 +11817,13 @@ function openQrScanner(fieldId, fieldLabel) {
 
 function scheduleScan() {
   if (!_qrActive) return;
-  _qrScanTimer = setTimeout(doScan, 200);
+  // Use requestVideoFrameCallback if available — fires exactly when a new frame is ready
+  const video = document.getElementById('qrVideo');
+  if (video && video.requestVideoFrameCallback) {
+    video.requestVideoFrameCallback(() => { if (_qrActive) doScan(); });
+  } else {
+    _qrScanTimer = setTimeout(doScan, 300);
+  }
 }
 
 let _scanCount = 0;
@@ -11851,50 +11857,40 @@ async function doScan() {
   const canvas = document.getElementById('qrCanvas');
   const vw = video.videoWidth;
   const vh = video.videoHeight;
-
-  // Detect rotation: if the video is wider than tall but the device is portrait,
-  // the stream is rotated 90°. We try all four orientations each scan.
-  const rotations = [0];
-  if (vw > vh) rotations.push(90, 270); // landscape stream on portrait device
-  if (_scanCount <= 3) qrLog('stream=' + vw + 'x' + vh + ' trying rotations: ' + rotations.join(','));
+  if (_scanCount <= 3) qrLog('stream=' + vw + 'x' + vh);
 
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-  // Show first canvas capture
+  // Draw inside rAF to ensure the frame is composited and not blank
+  await new Promise(resolve => requestAnimationFrame(() => {
+    canvas.width  = vw;
+    canvas.height = vh;
+    ctx.drawImage(video, 0, 0);
+    resolve();
+  }));
+
+  // Check if frame is blank (all pixels zero = black canvas)
+  const sample = ctx.getImageData(vw >> 1, vh >> 1, 4, 4);
+  const nonZero = sample.data.some(v => v > 10);
+  if (_scanCount <= 3) qrLog('frame blank=' + !nonZero);
+  if (!nonZero) { scheduleScan(); return; }
+
+  // Show canvas preview
   if (_scanCount <= 10) {
     canvas.style.display = 'block';
     canvas.style.height  = 'auto';
   }
 
-  // Try each rotation and return early if detected
-  for (const deg of rotations) {
-    if (deg === 0) {
-      canvas.width  = vw;
-      canvas.height = vh;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(video, 0, 0);
-    } else {
-      // 90 or 270 — swap width/height
-      canvas.width  = vh;
-      canvas.height = vw;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate(deg * Math.PI / 180);
-      ctx.drawImage(video, -vw / 2, -vh / 2);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+  try {
+    const codes = await _qrDetector.detect(canvas);
+    if (_scanCount <= 5) qrLog('detect→' + (codes.length ? 'FOUND' : 'empty'));
+    if (codes.length > 0 && codes[0].rawValue) {
+      qrLog('✓ ' + codes[0].rawValue, '#3fb950');
+      qrDetected(codes[0].rawValue);
+      return;
     }
-
-    try {
-      const codes = await _qrDetector.detect(canvas);
-      if (_scanCount <= 3) qrLog('rot' + deg + '→' + (codes.length ? 'FOUND' : 'empty'));
-      if (codes.length > 0 && codes[0].rawValue) {
-        qrLog('✓ ' + codes[0].rawValue, '#3fb950');
-        qrDetected(codes[0].rawValue);
-        return;
-      }
-    } catch(e) {
-      if (_scanCount <= 3) qrLog('rot' + deg + ' err: ' + e.message, '#f85149');
-    }
+  } catch(e) {
+    if (_scanCount <= 3) qrLog('detect err: ' + e.message, '#f85149');
   }
 
   // Try detect on canvas
