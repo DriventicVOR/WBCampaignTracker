@@ -195,7 +195,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.2.2</div>
+  <div class="version-badge">v2.2.3</div>
   <div class="spacer"></div>
 </header>
 
@@ -1024,7 +1024,7 @@ function renderGrid() {
       const sec=document.createElement('div'); sec.className='grid-section';
       const h3=document.createElement('h3'); h3.textContent=`${grp} (${groups[grp].length})`; sec.appendChild(h3);
       const grid=document.createElement('div'); grid.className='vehicle-grid';
-      groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; card.textContent=v.body_number; card.title=v.update_status; card.onclick=()=>openEntryModal(idx); grid.appendChild(card); });
+      groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; card.textContent=v.body_number; card.title=v.update_status; card.onclick=()=>{ if(activeCampaign&&activeCampaign.status==='closed'){ showAlertModal('Campaign Closed','Campaign closed'); return; } openEntryModal(idx); }; grid.appendChild(card); });
       sec.appendChild(grid); wrap.appendChild(sec);
     });
   }
