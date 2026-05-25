@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.26</div>
+  <div class="version-badge">v2.5.27</div>
   <div class="spacer"></div>
 </header>
 
@@ -11909,7 +11909,7 @@ async function doScan() {
       try {
         const hints = new Map();
         hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+        // No format restriction — detect QR, Data Matrix, Aztec, Code128, etc.
         const reader   = new ZXing.MultiFormatReader();
         reader.setHints(hints);
         const luminance = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
@@ -12029,7 +12029,7 @@ function setupQrInput() {
         try {
           const hints = new Map();
           hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.QR_CODE]);
+          // No format restriction — detect QR, Data Matrix, Aztec, Code128, etc.
           const reader   = new ZXing.MultiFormatReader();
           reader.setHints(hints);
           const luminance = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
