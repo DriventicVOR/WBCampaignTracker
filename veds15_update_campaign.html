@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.19</div>
+  <div class="version-badge">v2.5.20</div>
   <div class="spacer"></div>
 </header>
 
@@ -11883,22 +11883,41 @@ async function doScan() {
   const cropCtx    = cropCanvas.getContext('2d', { willReadFrequently: true });
 
   for (const crop of crops) {
+    const sw = Math.round(crop.sw);
+    const sh = Math.round(crop.sh);
+    const sx = Math.round(crop.sx);
+    const sy = Math.round(crop.sy);
+    if (sw < 10 || sh < 10) { qrLog(crop.label + ' skip (too small: ' + sw + 'x' + sh + ')'); continue; }
+
+    // Draw crop scaled up to full frame resolution
     cropCanvas.width  = vw;
     cropCanvas.height = vh;
-    cropCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, vw, vh);
-    const imageData = cropCtx.getImageData(0, 0, vw, vh);
+    cropCtx.clearRect(0, 0, vw, vh);
+    cropCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, vw, vh);
+
+    let imageData;
+    try {
+      imageData = cropCtx.getImageData(0, 0, vw, vh);
+    } catch(e) {
+      qrLog(crop.label + ' getImageData err: ' + e.message, '#f85149');
+      continue;
+    }
+    if (!imageData || !imageData.data || imageData.data.length === 0) {
+      qrLog(crop.label + ' empty imageData', '#f85149');
+      continue;
+    }
 
     for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
       let code;
-      try { code = jsQR(imageData.data, vw, vh, { inversionAttempts: inv }); }
-      catch(e) { qrLog('jsQR err: ' + e.message, '#f85149'); break; }
+      try { code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: inv }); }
+      catch(e) { qrLog('jsQR err ' + crop.label + ': ' + e.message, '#f85149'); break; }
       if (code && code.data) {
         qrLog('✓ ' + crop.label + '/' + inv + ': ' + code.data, '#3fb950');
         qrDetected(code.data);
         return;
       }
     }
-    if (_scanCount <= 10) qrLog(crop.label + '→empty');
+    if (_scanCount <= 10) qrLog(crop.label + '→empty (' + vw + 'x' + vh + ')');
   }
 
   scheduleScan();
