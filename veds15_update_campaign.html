@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.3.8</div>
+  <div class="version-badge">v2.3.9</div>
   <div class="spacer"></div>
 </header>
 
@@ -292,7 +292,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;display:none;">— Select a campaign to view graph —</span>
   </div>
   <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
-    <canvas id="progressChart"></canvas>
+    <canvas id="progressChart" style="width:100%;max-height:480px;"></canvas>
     <div id="graphEmpty" style="display:none;padding:60px;text-align:center;color:var(--muted);font-size:14px;">No dated records yet. Save engineer entries to populate the graph.</div>
   </div>
 </div>
@@ -511,7 +511,7 @@ function switchTab(t) {
   document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
   document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
   document.getElementById('tab-config').classList.toggle('active',  t==='config');
-  if (t==='graph') renderGraph();
+  if (t==='graph') requestAnimationFrame(() => renderGraph());
 }
 
 // ══ CAMPAIGN DROPDOWN ══
@@ -1485,7 +1485,10 @@ function renderGraph() {
     pendingPts.push(total - inProg - comp);
   });
 
-  if (chartInstance) chartInstance.destroy();
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  // Force canvas resize before drawing
+  canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth;
+  canvas.height = Math.min(480, Math.round((canvas.width || 600) * 0.55));
 
   const ctx = canvas.getContext('2d');
   chartInstance = new Chart(ctx, {
