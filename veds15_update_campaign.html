@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.3.4</div>
+  <div class="version-badge">v2.3.5</div>
   <div class="spacer"></div>
 </header>
 
@@ -1168,18 +1168,58 @@ async function refreshCampaignData() {
 }
 
 // ══ FILTERS ══
+// Populate all filters using the full vehicle set initially.
+// After initial load, updateContextFilters() keeps each dropdown
+// constrained to values present in the vehicles passing the OTHER active filters.
 function populateFilters() {
-  populateSelect('operatorFilter',vehicles.map(v=>v.account_name),'— All —');
-  populateSelect('depotFilter',vehicles.map(v=>v.depot),'— All —',true);
-  populateSelect('graphOperatorFilter',vehicles.map(v=>v.account_name),'— All —');
-  populateSelect('graphDepotFilter',vehicles.map(v=>v.depot),'— All —',true);
+  populateSelect('operatorFilter', vehicles.map(v=>v.account_name), '— All —');
+  populateSelect('depotFilter',    vehicles.map(v=>v.depot),        '— All —', true);
+  populateSelect('graphOperatorFilter', vehicles.map(v=>v.account_name), '— All —');
+  populateSelect('graphDepotFilter',    vehicles.map(v=>v.depot),        '— All —', true);
 }
-function populateSelect(id,values,placeholder,includeUnknown=false) {
+
+function populateSelect(id, values, placeholder, includeUnknown=false) {
   const sel=document.getElementById(id), cur=sel.value;
   sel.innerHTML=`<option value="">${placeholder}</option>`;
-  [...new Set(values.filter(Boolean))].sort().forEach(v=>{ const o=document.createElement('option'); o.value=v;o.textContent=v; sel.appendChild(o); });
-  if (includeUnknown&&values.some(v=>!v)) { const o=document.createElement('option'); o.value='__unknown__';o.textContent='Unknown'; sel.appendChild(o); }
-  sel.value=cur;
+  [...new Set(values.filter(Boolean))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o);
+  });
+  if (includeUnknown && values.some(v=>!v)) {
+    const o=document.createElement('option'); o.value='__unknown__'; o.textContent='Unknown'; sel.appendChild(o);
+  }
+  // Restore selection if still valid, otherwise reset to all
+  sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
+}
+
+// Filter helper — apply all filters except the one named in 'except'
+function getFilteredExcept(except, prefix='') {
+  const op  = except==='op'  ? '' : document.getElementById(prefix+'operatorFilter').value;
+  const dep = except==='dep' ? '' : document.getElementById(prefix+'depotFilter').value;
+  const st  = except==='st'  ? '' : (document.getElementById(prefix+'statusFilter') ? document.getElementById(prefix+'statusFilter').value : '');
+  const q   = except==='q'   ? '' : (document.getElementById(prefix+'searchInput') ? document.getElementById(prefix+'searchInput').value.trim().toUpperCase() : '');
+  return vehicles.filter(v=>{
+    if(op && v.account_name!==op) return false;
+    if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
+    if(st && v.update_status!==st) return false;
+    if(q  && !v.body_number.toUpperCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function updateContextFilters() {
+  // Tracker filters
+  const forOp  = getFilteredExcept('op');
+  const forDep = getFilteredExcept('dep');
+  populateSelect('operatorFilter', forOp.map(v=>v.account_name), '— All —');
+  populateSelect('depotFilter',    forDep.map(v=>v.depot),       '— All —', true);
+  // Status filter options are fixed (Pending/In Progress/Complete) — no dynamic population needed
+}
+
+function updateGraphContextFilters() {
+  const forOp  = getFilteredExcept('op',  'graph');
+  const forDep = getFilteredExcept('dep', 'graph');
+  populateSelect('graphOperatorFilter', forOp.map(v=>v.account_name), '— All —');
+  populateSelect('graphDepotFilter',    forDep.map(v=>v.depot),       '— All —', true);
 }
 
 // ══ GRID ══
@@ -1194,6 +1234,7 @@ function renderGrid() {
     if(q&&!v.body_number.toUpperCase().includes(q)) return false;
     return true;
   });
+  updateContextFilters();
   const groups={};
   filtered.forEach(v=>{ const g=v.account_name||'Unknown'; if(!groups[g]) groups[g]=[]; groups[g].push(v); });
   const content=document.getElementById('trackerContent');
@@ -1405,6 +1446,7 @@ function renderGraph() {
     if (search && !v.body_number.toUpperCase().includes(search)) return false;
     return true;
   });
+  updateGraphContextFilters();
 
   const dated = filtered.filter(v => v.engineer_data && v.engineer_data.submitted_date);
   if (dated.length === 0) {
