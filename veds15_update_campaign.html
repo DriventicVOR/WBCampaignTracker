@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.14</div>
+  <div class="version-badge">v2.5.15</div>
   <div class="spacer"></div>
 </header>
 
@@ -11881,32 +11881,35 @@ async function doScan() {
     canvas.style.height  = 'auto';
   }
 
-  try {
-    const codes = await _qrDetector.detect(canvas);
-    if (_scanCount <= 5) qrLog('detect→' + (codes.length ? 'FOUND' : 'empty'));
-    if (codes.length > 0 && codes[0].rawValue) {
-      qrLog('✓ ' + codes[0].rawValue, '#3fb950');
-      qrDetected(codes[0].rawValue);
-      return;
+  // Try full frame first, then progressively tighter centre crops
+  // Tighter crops help when the QR code is small relative to the full frame
+  const crops = [
+    { label: 'full',  sx: 0,        sy: 0,        sw: vw,      sh: vh      },
+    { label: 'c66',   sx: vw * 0.17, sy: vh * 0.17, sw: vw * 0.66, sh: vh * 0.66 },
+    { label: 'c50',   sx: vw * 0.25, sy: vh * 0.25, sw: vw * 0.50, sh: vh * 0.50 },
+    { label: 'c33',   sx: vw * 0.33, sy: vh * 0.33, sw: vw * 0.33, sh: vh * 0.33 },
+  ];
+
+  const cropCanvas = document.createElement('canvas');
+  const cropCtx    = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+  for (const crop of crops) {
+    cropCanvas.width  = Math.round(crop.sw);
+    cropCanvas.height = Math.round(crop.sh);
+    cropCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cropCanvas.width, cropCanvas.height);
+
+    try {
+      const codes = await _qrDetector.detect(cropCanvas);
+      if (_scanCount <= 5) qrLog(crop.label + '→' + (codes.length ? 'FOUND' : 'empty'));
+      if (codes.length > 0 && codes[0].rawValue) {
+        qrLog('✓ ' + crop.label + ': ' + codes[0].rawValue, '#3fb950');
+        qrDetected(codes[0].rawValue);
+        return;
+      }
+    } catch(e) {
+      if (_scanCount <= 3) qrLog(crop.label + ' err: ' + e.message, '#f85149');
     }
-  } catch(e) {
-    if (_scanCount <= 3) qrLog('detect err: ' + e.message, '#f85149');
   }
-
-  // Try detect on canvas
-  try {
-    const codes = await _qrDetector.detect(canvas);
-    if (_scanCount <= 3) qrLog('canvas→' + (codes.length ? 'FOUND' : 'empty'));
-    if (codes.length > 0 && codes[0].rawValue) {
-      qrLog('✓ ' + codes[0].rawValue, '#3fb950');
-      qrDetected(codes[0].rawValue);
-      return;
-    }
-  } catch(e) {
-    qrLog('canvas err: ' + e.message, '#f85149');
-  }
-
-
 
   scheduleScan();
 }
