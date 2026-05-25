@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.11</div>
+  <div class="version-badge">v2.5.12</div>
   <div class="spacer"></div>
 </header>
 
@@ -10540,7 +10540,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   <div id="qrDebugPanel" style="width:min(90vw,360px);flex-shrink:0;background:rgba(0,0,0,0.7);border:1px solid #30363d;border-radius:6px;padding:10px 12px;min-height:200px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:13px;color:#7d8590;line-height:1.8;"></div>
   <button class="ghost" onclick="closeQrScanner()" style="margin-top:12px;flex-shrink:0;">Cancel</button>
 </div>
-<canvas id="qrCanvas" style="display:none;"></canvas>
+<canvas id="qrCanvas" style="display:none;width:min(90vw,360px);border:1px solid #f85149;border-radius:6px;margin-top:8px;"></canvas>
 
 <div class="toast" id="toast"></div>
 
@@ -11853,6 +11853,12 @@ async function doScan() {
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(video, 0, 0);
+
+  // Show canvas on screen (first 10 scans only) so we can see what the detector sees
+  if (_scanCount <= 10) {
+    canvas.style.display = 'block';
+    canvas.style.height  = 'auto';
+  }
 
   // Try detect on canvas
   try {
