@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.27</div>
+  <div class="version-badge">v2.5.28</div>
   <div class="spacer"></div>
 </header>
 
@@ -11906,19 +11906,28 @@ async function doScan() {
     let decoded = null;
 
     if (typeof ZXing !== 'undefined') {
-      try {
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        // No format restriction — detect QR, Data Matrix, Aztec, Code128, etc.
-        const reader   = new ZXing.MultiFormatReader();
-        reader.setHints(hints);
-        const luminance = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
-        const bitmap    = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminance));
-        const result    = reader.decode(bitmap);
-        if (result && result.getText()) decoded = result.getText();
-      } catch(e) {
-        // NotFoundException is normal when no code found — only log other errors
-        if (e.name !== 'NotFoundException' && _scanCount <= 5) qrLog('ZXing: ' + e.name);
+      const luminanceSrc = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
+      // Try both binarizers — HybridBinarizer works better in good light,
+      // GlobalHistogramBinarizer works better in uneven/low light
+      for (const BinClass of [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer]) {
+        if (decoded) break;
+        const bitmap = new ZXing.BinaryBitmap(new BinClass(luminanceSrc));
+        // Try DataMatrixReader first (dedicated, more reliable for DM codes)
+        for (const ReaderClass of [ZXing.DataMatrixReader, ZXing.MultiFormatReader]) {
+          if (decoded) break;
+          try {
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            const reader = new ReaderClass();
+            reader.setHints(hints);
+            const result = reader.decode(bitmap);
+            if (result && result.getText()) decoded = result.getText();
+          } catch(e) {
+            if (e.name !== 'NotFoundException' && _scanCount <= 5) {
+              qrLog(ReaderClass.name + '/' + BinClass.name + ': ' + e.name);
+            }
+          }
+        }
       }
     }
 
@@ -12026,18 +12035,23 @@ function setupQrInput() {
       try { imageData = ctx.getImageData(0, 0, sw, sh); } catch(e) { continue; }
       let decoded = null;
       if (typeof ZXing !== 'undefined') {
-        try {
-          const hints = new Map();
-          hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-          // No format restriction — detect QR, Data Matrix, Aztec, Code128, etc.
-          const reader   = new ZXing.MultiFormatReader();
-          reader.setHints(hints);
-          const luminance = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
-          const bitmap    = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminance));
-          const result    = reader.decode(bitmap);
-          if (result && result.getText()) decoded = result.getText();
-        } catch(e) {
-          if (e.name !== 'NotFoundException') qrLog('ZXing photo: ' + e.name);
+        const luminanceSrc = new ZXing.RGBLuminanceSource(imageData.data, sw, sh);
+        for (const BinClass of [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer]) {
+          if (decoded) break;
+          const bitmap = new ZXing.BinaryBitmap(new BinClass(luminanceSrc));
+          for (const ReaderClass of [ZXing.DataMatrixReader, ZXing.MultiFormatReader]) {
+            if (decoded) break;
+            try {
+              const hints = new Map();
+              hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+              const reader = new ReaderClass();
+              reader.setHints(hints);
+              const result = reader.decode(bitmap);
+              if (result && result.getText()) decoded = result.getText();
+            } catch(e) {
+              if (e.name !== 'NotFoundException') qrLog(ReaderClass.name + ': ' + e.name);
+            }
+          }
         }
       }
       if (!decoded) {
