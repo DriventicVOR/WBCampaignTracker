@@ -111,7 +111,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .group-add-btn{font-size:12px;padding:4px 10px;align-self:flex-start;margin-top:2px;}
 
 /* Field row */
-.field-row{display:grid;grid-template-columns:24px 1fr 130px 130px 28px;gap:6px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;}
+.field-row{display:grid;grid-template-columns:24px 1fr 130px 80px 130px 28px;gap:6px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;}
 .field-row input[type="text"]{width:100%;font-size:13px;}
 .field-row select{font-size:13px;}
 .drag-handle{color:var(--muted);cursor:grab;font-size:16px;text-align:center;user-select:none;line-height:1;}
@@ -207,6 +207,23 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .new-fleet-drop{border:2px dashed var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
 .new-fleet-drop:hover,.new-fleet-drop.drag-over{border-color:var(--accent);color:var(--accent);}
 
+/* QR camera overlay */
+.qr-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.qr-overlay video{width:100%;max-width:360px;border-radius:10px;border:2px solid var(--accent);}
+.qr-overlay canvas{display:none;}
+.qr-viewfinder{position:relative;width:100%;max-width:360px;}
+.qr-viewfinder::after{content:'';position:absolute;inset:20%;border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);}
+.qr-label{font-size:13px;color:var(--muted);text-align:center;}
+.qr-target{font-family:'Rajdhani',sans-serif;font-size:15px;color:var(--accent);font-weight:600;}
+/* QR button in eng field */
+.eng-field-row{display:flex;gap:6px;align-items:center;}
+.eng-field-row input{flex:1;}
+.qr-btn{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--accent);cursor:pointer;padding:6px 9px;font-size:16px;line-height:1;flex-shrink:0;transition:border-color .15s,background .15s;}
+.qr-btn:hover{border-color:var(--accent);background:var(--surface);}
+/* QR checkbox in field builder */
+.qr-check-wrap{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap;}
+.qr-check-wrap input{accent-color:var(--accent);cursor:pointer;}
+
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -216,7 +233,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.7</div>
+  <div class="version-badge">v2.5.0</div>
   <div class="spacer"></div>
 </header>
 
@@ -416,6 +433,15 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   </div>
 </div>
 
+<div class="qr-overlay" id="qrOverlay" style="display:none;">
+  <div class="qr-viewfinder">
+    <video id="qrVideo" autoplay playsinline muted></video>
+  </div>
+  <canvas id="qrCanvas"></canvas>
+  <div class="qr-label">Scanning for QR code — aim at code<br><span class="qr-target" id="qrTargetLabel"></span></div>
+  <button class="ghost" onclick="closeQrScanner()" style="margin-top:4px;">Cancel</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -571,6 +597,8 @@ function makeFieldRow(f) {
   row.dataset.kind = 'field';
   row.dataset.fieldId = f.id;
   const optsHidden = f.type !== 'dropdown' ? 'display:none' : '';
+  const qrChecked = f.qr ? 'checked' : '';
+  const qrHidden  = f.type !== 'text' ? 'display:none' : '';
   row.innerHTML = `
     <span class="drag-handle" title="Drag to reorder or move into/out of groups">⠿</span>
     <input type="text" class="field-label-input" placeholder="Field label" value="${esc(f.label)}">
@@ -579,6 +607,7 @@ function makeFieldRow(f) {
       <option value="toggle"   ${f.type==='toggle'  ?'selected':''}>Yes/No</option>
       <option value="dropdown" ${f.type==='dropdown'?'selected':''}>Dropdown</option>
     </select>
+    <span class="qr-check-wrap field-qr-wrap" style="${qrHidden}"><input type="checkbox" class="field-qr-check" ${qrChecked} title="Enable QR scan"> 📷 QR</span>
     <input type="text" class="opts-input" placeholder="Opt1, Opt2…" value="${esc((f.options||[]).join(', '))}" style="${optsHidden}">
     <button class="remove-btn" onclick="this.closest('.field-row').remove()" title="Remove">✕</button>
   `;
@@ -613,7 +642,9 @@ function addFieldToGroup(btn) {
 }
 
 function onTypeChange(sel) {
-  sel.closest('.field-row').querySelector('.opts-input').style.display = sel.value==='dropdown' ? '' : 'none';
+  const row = sel.closest('.field-row');
+  row.querySelector('.opts-input').style.display      = sel.value==='dropdown' ? '' : 'none';
+  row.querySelector('.field-qr-wrap').style.display   = sel.value==='text'     ? '' : 'none';
 }
 
 // ── Field drag: can be dragged into/out of groups and reordered ──
@@ -777,7 +808,9 @@ function readFieldRow(row) {
   const label = row.querySelector('.field-label-input').value.trim();
   const type  = row.querySelector('.field-type-select').value;
   const opts  = row.querySelector('.opts-input').value.trim();
-  return { kind:'field', id: row.dataset.fieldId || `f_${Date.now()}`, label: label||'Unnamed', type, options: type==='dropdown' ? opts.split(',').map(s=>s.trim()).filter(Boolean) : [] };
+  const qrEl  = row.querySelector('.field-qr-check');
+  const qr    = type === 'text' && qrEl && qrEl.checked;
+  return { kind:'field', id: row.dataset.fieldId || `f_${Date.now()}`, label: label||'Unnamed', type, options: type==='dropdown' ? opts.split(',').map(s=>s.trim()).filter(Boolean) : [], qr };
 }
 
 function populateBuilder(areaId, schema) {
@@ -1351,7 +1384,11 @@ function makeEngField(f, ed) {
   const wrap=document.createElement('div'); wrap.className='eng-field';
   const val=ed[f.id];
   if (f.type==='text') {
-    wrap.innerHTML=`<label>${esc(f.label)}</label><input type="text" id="ef_${f.id}" value="${esc(val||'')}" placeholder="${esc(f.label)}…">`;
+    if (f.qr) {
+      wrap.innerHTML=`<label>${esc(f.label)}</label><div class="eng-field-row"><input type="text" id="ef_${f.id}" value="${esc(val||'')}" placeholder="${esc(f.label)}…"><button class="qr-btn" onclick="openQrScanner('ef_${f.id}','${esc(f.label)}')" title="Scan QR code">📷</button></div>`;
+    } else {
+      wrap.innerHTML=`<label>${esc(f.label)}</label><input type="text" id="ef_${f.id}" value="${esc(val||'')}" placeholder="${esc(f.label)}…">`;
+    }
   } else if (f.type==='toggle') {
     const on=toggleStates[f.id];
     wrap.innerHTML=`<div class="toggle-field ${on?'on':''}" id="tf_${f.id}" onclick="toggleEngField('${f.id}')"><span class="tl">${esc(f.label)}</span><span class="ts" id="ts_${f.id}">${on?'Y':'N'}</span></div>`;
@@ -1618,6 +1655,84 @@ function renderGraph() {
         },
       },
     },
+  });
+}
+
+// ══ QR SCANNER ══
+let _qrStream = null;
+let _qrTargetId = null;
+let _qrAnimFrame = null;
+
+async function openQrScanner(fieldId, fieldLabel) {
+  _qrTargetId = fieldId;
+  document.getElementById('qrTargetLabel').textContent = fieldLabel;
+  const overlay = document.getElementById('qrOverlay');
+  const video   = document.getElementById('qrVideo');
+  overlay.style.display = 'flex';
+  try {
+    _qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    video.srcObject = _qrStream;
+    await video.play();
+    scanQrFrame();
+  } catch(e) {
+    overlay.style.display = 'none';
+    showToast('Camera access denied or unavailable', 'error');
+  }
+}
+
+function scanQrFrame() {
+  const video  = document.getElementById('qrVideo');
+  const canvas = document.getElementById('qrCanvas');
+  if (video.readyState < video.HAVE_ENOUGH_DATA) { _qrAnimFrame = requestAnimationFrame(scanQrFrame); return; }
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  // Use BarcodeDetector if available (Chrome/Android), otherwise fall back to jsQR
+  if (window.BarcodeDetector) {
+    new BarcodeDetector({ formats: ['qr_code'] }).detect(canvas).then(codes => {
+      if (codes.length > 0) qrDetected(codes[0].rawValue);
+      else _qrAnimFrame = requestAnimationFrame(scanQrFrame);
+    }).catch(() => { _qrAnimFrame = requestAnimationFrame(scanQrFrame); });
+  } else if (window.jsQR) {
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if (code) qrDetected(code.data);
+    else _qrAnimFrame = requestAnimationFrame(scanQrFrame);
+  } else {
+    // Load jsQR on demand
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js').then(() => {
+      _qrAnimFrame = requestAnimationFrame(scanQrFrame);
+    });
+  }
+}
+
+function qrDetected(value) {
+  closeQrScanner();
+  const el = document.getElementById(_qrTargetId);
+  if (el) {
+    el.value = value;
+    el.dispatchEvent(new Event('input'));
+    updateModalStatus();
+  }
+  showToast('QR scanned: ' + value, 'success');
+}
+
+function closeQrScanner() {
+  if (_qrAnimFrame) { cancelAnimationFrame(_qrAnimFrame); _qrAnimFrame = null; }
+  if (_qrStream)    { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
+  const video = document.getElementById('qrVideo');
+  video.srcObject = null;
+  document.getElementById('qrOverlay').style.display = 'none';
+  _qrTargetId = null;
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
   });
 }
 
