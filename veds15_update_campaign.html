@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.16</div>
+  <div class="version-badge">v2.5.17</div>
   <div class="spacer"></div>
 </header>
 
@@ -11760,38 +11760,34 @@ function renderGraph() {
 }
 
 // ══ QR SCANNER ══
-let _qrTargetId  = null;
-let _qrStream    = null;
-let _qrScanTimer = null;
-let _qrDetector  = null;
-let _qrActive    = false;
+let _qrTargetId    = null;
+let _qrStream      = null;
+let _qrScanTimer   = null;
+let _qrActive      = false;
 let _qrStatusTimer = null;
+let _scanCount     = 0;
+
+function qrLog(msg, colour) {
+  const panel = document.getElementById('qrDebugPanel');
+  if (!panel) return;
+  const line = document.createElement('div');
+  line.style.color = colour || '#7d8590';
+  line.textContent = msg;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+  console.log('[QR]', msg);
+}
 
 function openQrScanner(fieldId, fieldLabel) {
-  if (!window.BarcodeDetector) {
-    showToast('QR scanning not supported on this browser. Try Chrome on Android.', 'error');
-    return;
-  }
   _qrTargetId = fieldId;
   _qrActive   = true;
   _scanCount  = 0;
   document.getElementById('qrTargetLabel').textContent = fieldLabel;
   document.getElementById('qrStatus').textContent      = 'Starting camera…';
   document.getElementById('qrOverlay').style.display   = 'flex';
-
-  // Create detector once
-  // Clear debug panel
   const panel = document.getElementById('qrDebugPanel');
   if (panel) panel.innerHTML = '';
-
-  try {
-    _qrDetector = new BarcodeDetector({ formats: ['qr_code'] });
-    BarcodeDetector.getSupportedFormats().then(fmts => qrLog('Formats: ' + fmts.join(', ')));
-    qrLog('BarcodeDetector created OK');
-  } catch(e) {
-    showToast('BarcodeDetector init failed: ' + e.message, 'error');
-    closeQrScanner(); return;
-  }
+  qrLog('jsQR ready');
 
   navigator.mediaDevices.getUserMedia({
     audio: false,
@@ -11803,9 +11799,8 @@ function openQrScanner(fieldId, fieldLabel) {
     video.srcObject = stream;
     video.play().then(() => {
       document.getElementById('qrStatus').textContent = 'Aim the QR code at the centre box';
-      // Update status periodically so engineer knows scanning is active
       _qrStatusTimer = setInterval(() => {
-        if (_qrActive) document.getElementById('qrStatus').textContent = 'Scanning… (attempt ' + _scanCount + ')';
+        if (_qrActive) document.getElementById('qrStatus').textContent = 'Scanning… #' + _scanCount;
       }, 1000);
       scheduleScan();
     });
@@ -11817,51 +11812,29 @@ function openQrScanner(fieldId, fieldLabel) {
 
 function scheduleScan() {
   if (!_qrActive) return;
-  // Use requestVideoFrameCallback if available — fires exactly when a new frame is ready
   const video = document.getElementById('qrVideo');
   if (video && video.requestVideoFrameCallback) {
     video.requestVideoFrameCallback(() => { if (_qrActive) doScan(); });
   } else {
-    _qrScanTimer = setTimeout(doScan, 300);
+    _qrScanTimer = setTimeout(doScan, 150);
   }
-}
-
-let _scanCount = 0;
-
-function qrLog(msg, colour) {
-  const panel = document.getElementById('qrDebugPanel');
-  if (!panel) return;
-  const line = document.createElement('div');
-  line.style.color = colour || '#7d8590';
-  line.textContent = msg;
-  panel.appendChild(line);
-  panel.scrollTop = panel.scrollHeight;
-  // Also log to console
-  console.log('[QR]', msg);
 }
 
 async function doScan() {
   if (!_qrActive) return;
   const video = document.getElementById('qrVideo');
   if (!video || video.readyState < 2 || video.videoWidth === 0) {
-    if (_scanCount === 0) qrLog('Waiting… state=' + (video ? video.readyState : 'null'));
     scheduleScan(); return;
   }
 
   _scanCount++;
-  if (_scanCount <= 3 || _scanCount % 20 === 0) {
-    qrLog('#' + _scanCount + ' ' + video.videoWidth + 'x' + video.videoHeight);
-  }
 
-  // Always use canvas snapshot — more reliable than passing video element directly
   const canvas = document.getElementById('qrCanvas');
   const vw = video.videoWidth;
   const vh = video.videoHeight;
-  if (_scanCount <= 3) qrLog('stream=' + vw + 'x' + vh);
-
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-  // Draw inside rAF to ensure the frame is composited and not blank
+  // Grab frame inside rAF so it's fully composited
   await new Promise(resolve => requestAnimationFrame(() => {
     canvas.width  = vw;
     canvas.height = vh;
@@ -11869,24 +11842,15 @@ async function doScan() {
     resolve();
   }));
 
-  // Check if frame is blank (all pixels zero = black canvas)
-  const sample = ctx.getImageData(vw >> 1, vh >> 1, 4, 4);
-  const nonZero = sample.data.some(v => v > 10);
-  if (_scanCount <= 3) qrLog('frame blank=' + !nonZero);
-  if (!nonZero) { scheduleScan(); return; }
-
-  // Show canvas preview
-  if (_scanCount <= 10) {
+  // Show preview on first scans
+  if (_scanCount <= 5) {
     canvas.style.display = 'block';
     canvas.style.height  = 'auto';
   }
 
-  // Try full frame first, then progressively tighter centre crops
-  // Tighter crops help when the QR code is small relative to the full frame
-  // Each crop takes a region of the frame and scales it UP to full resolution.
-  // This gives BarcodeDetector more pixels per QR module, improving small QR detection.
+  // Try jsQR at multiple crop levels — each crop is scaled UP to full resolution
   const crops = [
-    { label: 'full', sx: 0,         sy: 0,         sw: vw,       sh: vh       },
+    { label: 'full', sx: 0,          sy: 0,          sw: vw,       sh: vh       },
     { label: 'c75',  sx: vw * 0.125, sy: vh * 0.125, sw: vw * 0.75, sh: vh * 0.75 },
     { label: 'c50',  sx: vw * 0.25,  sy: vh * 0.25,  sw: vw * 0.5,  sh: vh * 0.5  },
     { label: 'c33',  sx: vw * 0.33,  sy: vh * 0.33,  sw: vw * 0.33, sh: vh * 0.33 },
@@ -11897,25 +11861,20 @@ async function doScan() {
   const cropCtx    = cropCanvas.getContext('2d', { willReadFrequently: true });
 
   for (const crop of crops) {
-    // Scale crop back up to full frame size so detector has maximum pixels
     cropCanvas.width  = vw;
     cropCanvas.height = vh;
-    cropCtx.drawImage(canvas,
-      crop.sx, crop.sy, crop.sw, crop.sh,  // source region
-      0, 0, vw, vh                          // scale up to full resolution
-    );
+    cropCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, vw, vh);
+    const imageData = cropCtx.getImageData(0, 0, vw, vh);
 
-    try {
-      const codes = await _qrDetector.detect(cropCanvas);
-      if (_scanCount <= 5) qrLog(crop.label + '→' + (codes.length ? 'FOUND' : 'empty'));
-      if (codes.length > 0 && codes[0].rawValue) {
-        qrLog('✓ ' + crop.label + ': ' + codes[0].rawValue, '#3fb950');
-        qrDetected(codes[0].rawValue);
+    for (const inv of ['dontInvert', 'onlyInvert', 'attemptBoth']) {
+      const code = jsQR(imageData.data, vw, vh, { inversionAttempts: inv });
+      if (code && code.data) {
+        qrLog('✓ ' + crop.label + '/' + inv + ': ' + code.data, '#3fb950');
+        qrDetected(code.data);
         return;
       }
-    } catch(e) {
-      if (_scanCount <= 3) qrLog(crop.label + ' err: ' + e.message, '#f85149');
     }
+    if (_scanCount <= 3) qrLog(crop.label + '→empty');
   }
 
   scheduleScan();
@@ -11934,23 +11893,19 @@ function qrDetected(value) {
 
 function closeQrScanner() {
   _qrActive = false;
-  if (_qrScanTimer) { clearTimeout(_qrScanTimer); _qrScanTimer = null; }
-  if (_qrStream)    { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
+  if (_qrScanTimer)   { clearTimeout(_qrScanTimer);   _qrScanTimer   = null; }
+  if (_qrStatusTimer) { clearInterval(_qrStatusTimer); _qrStatusTimer = null; }
+  if (_qrStream)      { _qrStream.getTracks().forEach(t => t.stop()); _qrStream = null; }
   const video = document.getElementById('qrVideo');
   if (video) video.srcObject = null;
-  if (_qrStatusTimer) { clearInterval(_qrStatusTimer); _qrStatusTimer = null; }
   _scanCount = 0;
   const dbp = document.getElementById('qrDebugPanel'); if (dbp) dbp.innerHTML = '';
   document.getElementById('qrOverlay').style.display = 'none';
   _qrTargetId = null;
-  _qrDetector = null;
 }
 
 function setupQrInput() {
-  // Check support on load and warn early
-  if (!window.BarcodeDetector) {
-    console.warn('BarcodeDetector not available on this browser');
-  } // support check done on openQrScanner
+  qrLog('jsQR ' + (typeof jsQR === 'function' ? 'loaded' : 'MISSING'));
 }
 
 init();
