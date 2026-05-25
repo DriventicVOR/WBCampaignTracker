@@ -10328,7 +10328,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.5.15</div>
+  <div class="version-badge">v2.5.16</div>
   <div class="spacer"></div>
 </header>
 
@@ -11883,20 +11883,27 @@ async function doScan() {
 
   // Try full frame first, then progressively tighter centre crops
   // Tighter crops help when the QR code is small relative to the full frame
+  // Each crop takes a region of the frame and scales it UP to full resolution.
+  // This gives BarcodeDetector more pixels per QR module, improving small QR detection.
   const crops = [
-    { label: 'full',  sx: 0,        sy: 0,        sw: vw,      sh: vh      },
-    { label: 'c66',   sx: vw * 0.17, sy: vh * 0.17, sw: vw * 0.66, sh: vh * 0.66 },
-    { label: 'c50',   sx: vw * 0.25, sy: vh * 0.25, sw: vw * 0.50, sh: vh * 0.50 },
-    { label: 'c33',   sx: vw * 0.33, sy: vh * 0.33, sw: vw * 0.33, sh: vh * 0.33 },
+    { label: 'full', sx: 0,         sy: 0,         sw: vw,       sh: vh       },
+    { label: 'c75',  sx: vw * 0.125, sy: vh * 0.125, sw: vw * 0.75, sh: vh * 0.75 },
+    { label: 'c50',  sx: vw * 0.25,  sy: vh * 0.25,  sw: vw * 0.5,  sh: vh * 0.5  },
+    { label: 'c33',  sx: vw * 0.33,  sy: vh * 0.33,  sw: vw * 0.33, sh: vh * 0.33 },
+    { label: 'c25',  sx: vw * 0.375, sy: vh * 0.375, sw: vw * 0.25, sh: vh * 0.25 },
   ];
 
   const cropCanvas = document.createElement('canvas');
   const cropCtx    = cropCanvas.getContext('2d', { willReadFrequently: true });
 
   for (const crop of crops) {
-    cropCanvas.width  = Math.round(crop.sw);
-    cropCanvas.height = Math.round(crop.sh);
-    cropCtx.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cropCanvas.width, cropCanvas.height);
+    // Scale crop back up to full frame size so detector has maximum pixels
+    cropCanvas.width  = vw;
+    cropCanvas.height = vh;
+    cropCtx.drawImage(canvas,
+      crop.sx, crop.sy, crop.sw, crop.sh,  // source region
+      0, 0, vw, vh                          // scale up to full resolution
+    );
 
     try {
       const codes = await _qrDetector.detect(cropCanvas);
