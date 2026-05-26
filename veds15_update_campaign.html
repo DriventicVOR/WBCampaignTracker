@@ -82,7 +82,8 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .grid-section{margin-bottom:28px;}
 .grid-section h3{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
 .vehicle-grid{display:flex;flex-wrap:wrap;gap:6px;}
-.vehicle-card{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:600;padding:8px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:transform .1s,box-shadow .15s,border-color .15s;min-width:72px;text-align:center;letter-spacing:.5px;user-select:none;}
+.vehicle-card{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:600;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:transform .1s,box-shadow .15s,border-color .15s;min-width:72px;text-align:center;letter-spacing:.5px;user-select:none;line-height:1.4;}
+.vehicle-card .card-date{display:block;font-size:10px;font-weight:400;opacity:0.8;letter-spacing:0;}
 .vehicle-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.4);border-color:rgba(255,255,255,.2);}
 .vehicle-card.status-Pending{background:var(--pending-bg);color:var(--pending);border-color:rgba(248,81,73,.3);}
 .vehicle-card.status-In-Progress{background:var(--progress-bg);color:var(--progress);border-color:rgba(210,153,34,.3);}
@@ -216,7 +217,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.19</div>
+  <div class="version-badge">v2.4.20</div>
   <div class="spacer"></div>
 </header>
 
@@ -1359,7 +1360,10 @@ function renderGrid() {
       const sec=document.createElement('div'); sec.className='grid-section';
       const h3=document.createElement('h3'); h3.textContent=`${grp} (${groups[grp].length})`; sec.appendChild(h3);
       const grid=document.createElement('div'); grid.className='vehicle-grid';
-      groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; card.textContent=v.body_number; card.title=v.update_status; card.onclick=()=>{ if(activeCampaign&&activeCampaign.status==='closed'){ showAlertModal('Campaign Closed','Campaign closed'); return; } refreshAndOpenModal(v.body_number); }; grid.appendChild(card); });
+      groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; const submittedDate = v.engineer_data && v.engineer_data.submitted_date;
+        const showDate = submittedDate && (v.update_status === 'In Progress' || v.update_status === 'Complete');
+        card.innerHTML = v.body_number + (showDate ? `<span class="card-date">${submittedDate}</span>` : '');
+        card.title = v.update_status + (showDate ? ' — ' + submittedDate : ''); card.onclick=()=>{ if(activeCampaign&&activeCampaign.status==='closed'){ showAlertModal('Campaign Closed','Campaign closed'); return; } refreshAndOpenModal(v.body_number); }; grid.appendChild(card); });
       sec.appendChild(grid); wrap.appendChild(sec);
     });
   }
