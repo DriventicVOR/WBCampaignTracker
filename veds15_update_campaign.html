@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.11</div>
+  <div class="version-badge">v2.4.12</div>
   <div class="spacer"></div>
 </header>
 
@@ -306,7 +306,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     </div>
   </div>
   <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
-    <canvas id="progressChart" style="width:100%;max-height:480px;"></canvas>
+    <canvas id="progressChart"></canvas>
     <div id="graphEmpty" style="display:none;padding:60px;text-align:center;color:var(--muted);font-size:14px;">No dated records yet. Save engineer entries to populate the graph.</div>
   </div>
 </div>
@@ -527,16 +527,7 @@ function switchTab(t) {
   document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
   document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
   document.getElementById('tab-config').classList.toggle('active',  t==='config');
-  if (t==='graph') {
-    // Sync graph campaign dropdown with tracker selection if not already set
-    const gSel = document.getElementById('graphCampaignSelect');
-    if (!gSel.value && activeCampaign) {
-      gSel.value = activeCampaign.id;
-      onGraphCampaignChange();
-    } else {
-      requestAnimationFrame(() => renderGraph());
-    }
-  }
+  if (t==='graph') requestAnimationFrame(() => renderGraph());
 }
 
 // ══ CAMPAIGN DROPDOWN ══
@@ -555,19 +546,56 @@ function refreshCampaignDropdown() {
   }
 }
 
-async function onCampaignChange() {
-  const id = document.getElementById('campaignSelect').value;
-  if (!id) { activeCampaign=null; vehicles=[]; document.getElementById('dropZone').classList.add('disabled'); document.getElementById('btnRefresh').disabled=true; resetStats(); setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.'); return; }
-  activeCampaign = campaignList.find(c => c.id === id);
+async function loadCampaign(id) {
+  // Sync both dropdowns
+  document.getElementById('campaignSelect').value      = id || '';
+  document.getElementById('graphCampaignSelect').value = id || '';
+
+  if (!id) {
+    activeCampaign = null; graphActiveCampaign = null;
+    vehicles = []; graphVehicles = [];
+    document.getElementById('dropZone').classList.add('disabled');
+    document.getElementById('btnRefresh').disabled = true;
+    resetStats(); resetGraphStats();
+    setTrackerEmpty('No campaign selected','Select a campaign above, or create one in the Config tab.');
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
+
+  const campaign = campaignList.find(c => c.id === id);
+  activeCampaign = campaign;
+  graphActiveCampaign = campaign;
   document.getElementById('dropZone').classList.remove('disabled');
-  setTrackerLoading(`Loading ${activeCampaign.name}…`);
+  setTrackerLoading(`Loading ${campaign.name}…`);
+
   try {
-    const data = await sbGet(activeCampaign.fileName);
+    const data = await sbGet(campaign.fileName);
     vehicles = data && Array.isArray(data) ? data : [];
-    if (vehicles.length === 0) setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file to import vehicles.');
-    else { populateFilters(); renderGrid(); }
+    graphVehicles = vehicles;
+    if (vehicles.length === 0) {
+      setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file to import vehicles.');
+    } else {
+      populateFilters();
+      populateGraphFilters();
+      renderGrid();
+    }
     document.getElementById('btnRefresh').disabled = false;
-  } catch(e) { showToast('Failed to load: '+e.message,'error'); setTrackerEmpty('Load failed',e.message); }
+    document.getElementById('graphNoCampaign').style.display = 'none';
+    // Re-render graph if it's visible
+    if (document.getElementById('pane-graph').style.display !== 'none') renderGraph();
+  } catch(e) {
+    showToast('Failed to load: '+e.message,'error');
+    setTrackerEmpty('Load failed',e.message);
+  }
+}
+
+async function onCampaignChange() {
+  await loadCampaign(document.getElementById('campaignSelect').value);
+}
+
+async function onGraphCampaignChange() {
+  await loadCampaign(document.getElementById('graphCampaignSelect').value);
+  requestAnimationFrame(() => renderGraph());
 }
 
 // ══ FIELD BUILDER (shared between new & edit) ══
@@ -1580,15 +1608,8 @@ function renderGraph() {
   const { step: yStep, yMax } = yAxisConfig(maxSeriesVal);
 
   if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-  // Force canvas resize before drawing
-  canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth;
-  canvas.height = Math.min(480, Math.round((canvas.width || 600) * 0.55));
 
   const ctx = canvas.getContext('2d');
-  // Ensure Filler plugin registered (required for fill: in Chart.js 4)
-  if (Chart.registry && !Chart.registry.plugins.get('filler')) {
-    Chart.register(Chart.Filler);
-  }
   chartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -1635,6 +1656,8 @@ function renderGraph() {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
