@@ -217,7 +217,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.21</div>
+  <div class="version-badge">v2.4.22</div>
   <div class="spacer"></div>
 </header>
 
@@ -232,7 +232,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   <div class="tracker-toolbar">
     <div class="campaign-select-wrap">
       <label>Campaign</label>
-      <select id="campaignSelect" onchange="onCampaignChange()">
+      <select id="campaignSelect" onchange="onCampaignChange()" onfocus="this.value=''">
         <option value="">— Select a campaign —</option>
       </select>
     </div>
@@ -280,7 +280,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   <div class="tracker-toolbar">
     <div class="campaign-select-wrap">
       <label>Campaign</label>
-      <select id="graphCampaignSelect" onchange="onGraphCampaignChange()">
+      <select id="graphCampaignSelect" onchange="onGraphCampaignChange()" onfocus="this.value=''">
         <option value="">— Select a campaign —</option>
       </select>
     </div>
@@ -551,7 +551,7 @@ function switchTab(t) {
 function refreshCampaignDropdown() {
   for (const id of ['campaignSelect', 'graphCampaignSelect']) {
     const sel = document.getElementById(id);
-    const cur = sel.value;
+    const cur = activeCampaign ? activeCampaign.id : '';
     sel.innerHTML = '<option value="">— Select a campaign —</option>';
     campaignList.forEach(c => {
       const o = document.createElement('option');
@@ -559,7 +559,7 @@ function refreshCampaignDropdown() {
       o.textContent = `${c.name}  [${c.status.toUpperCase()}]`;
       sel.appendChild(o);
     });
-    if (cur) sel.value = cur;
+    sel.value = cur;
   }
 }
 
