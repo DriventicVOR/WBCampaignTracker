@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.17</div>
+  <div class="version-badge">v2.4.18</div>
   <div class="spacer"></div>
 </header>
 
@@ -1245,12 +1245,12 @@ async function refreshCampaignData() {
 // After initial load, updateContextFilters() keeps each dropdown
 // constrained to values present in the vehicles passing the OTHER active filters.
 function populateFilters() {
-  populateSelect('operatorFilter', vehicles.map(v=>v.account_name), '— All —');
+  populateSelect('operatorFilter', vehicles.map(v=>v.operator), '— All —');
   populateSelect('depotFilter',    vehicles.map(v=>v.depot),        '— All —', true);
 }
 
 function populateGraphFilters() {
-  populateSelect('graphOperatorFilter', graphVehicles.map(v=>v.account_name), '— All —');
+  populateSelect('graphOperatorFilter', graphVehicles.map(v=>v.operator), '— All —');
   populateSelect('graphDepotFilter',    graphVehicles.map(v=>v.depot),        '— All —', true);
 }
 
@@ -1304,7 +1304,7 @@ function getFilteredExcept(except, prefix='') {
   const q   = (except==='q' || !qId) ? '' : elVal(qId).trim().toUpperCase();
 
   return vehicles.filter(v=>{
-    if(op && v.account_name!==op) return false;
+    if(op && v.operator!==op) return false;
     if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
     if(st && v.update_status!==st) return false;
     if(q  && !matchesSearch(v, q)) return false;
@@ -1316,7 +1316,7 @@ function updateContextFilters() {
   // Tracker filters
   const forOp  = getFilteredExcept('op');
   const forDep = getFilteredExcept('dep');
-  populateSelect('operatorFilter', forOp.map(v=>v.account_name), '— All —');
+  populateSelect('operatorFilter', forOp.map(v=>v.operator), '— All —');
   populateSelect('depotFilter',    forDep.map(v=>v.depot),       '— All —', true);
   // Status filter options are fixed (Pending/In Progress/Complete) — no dynamic population needed
 }
@@ -1330,10 +1330,10 @@ function updateGraphContextFilters() {
     return true;
   });
   const forDep = graphVehicles.filter(v => {
-    if (op && v.account_name !== op) return false;
+    if (op && v.operator !== op) return false;
     return true;
   });
-  populateSelect('graphOperatorFilter', forOp.map(v=>v.account_name), '— All —');
+  populateSelect('graphOperatorFilter', forOp.map(v=>v.operator), '— All —');
   populateSelect('graphDepotFilter',    forDep.map(v=>v.depot),       '— All —', true);
 }
 
@@ -1343,7 +1343,7 @@ function renderGrid() {
   const op=document.getElementById('operatorFilter').value, dep=document.getElementById('depotFilter').value;
   const st=document.getElementById('statusFilter').value, q=document.getElementById('searchInput').value.trim().toUpperCase();
   const filtered=vehicles.filter(v=>{
-    if(op&&v.account_name!==op) return false;
+    if(op&&v.operator!==op) return false;
     if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
     if(st&&v.update_status!==st) return false;
     if(q&&!matchesSearch(v,q)) return false;
@@ -1563,7 +1563,7 @@ function renderGraph() {
   const depFilter = document.getElementById('graphDepotFilter').value;
 
   const filtered = graphVehicles.filter(v => {
-    if (opFilter && v.account_name !== opFilter) return false;
+    if (opFilter && v.operator !== opFilter) return false;
     if (depFilter) {
       if (depFilter === '__unknown__' && v.depot) return false;
       if (depFilter !== '__unknown__' && v.depot !== depFilter) return false;
