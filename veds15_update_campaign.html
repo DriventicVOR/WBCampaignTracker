@@ -82,8 +82,8 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .grid-section{margin-bottom:28px;}
 .grid-section h3{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
 .vehicle-grid{display:flex;flex-wrap:wrap;gap:6px;}
-.vehicle-card{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:600;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:transform .1s,box-shadow .15s,border-color .15s;min-width:72px;text-align:center;letter-spacing:.5px;user-select:none;line-height:1.4;}
-.vehicle-card .card-date{display:block;font-size:10px;font-weight:400;opacity:0.8;letter-spacing:0;}
+.vehicle-card{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:600;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:transform .1s,box-shadow .15s,border-color .15s;min-width:72px;width:80px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;letter-spacing:.5px;user-select:none;line-height:1.3;}
+.vehicle-card .card-date{display:block;font-size:10px;font-weight:400;opacity:0.8;letter-spacing:0;margin-top:2px;}
 .vehicle-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.4);border-color:rgba(255,255,255,.2);}
 .vehicle-card.status-Pending{background:var(--pending-bg);color:var(--pending);border-color:rgba(248,81,73,.3);}
 .vehicle-card.status-In-Progress{background:var(--progress-bg);color:var(--progress);border-color:rgba(210,153,34,.3);}
@@ -217,7 +217,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.20</div>
+  <div class="version-badge">v2.4.21</div>
   <div class="spacer"></div>
 </header>
 
@@ -362,7 +362,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="vehicle-info" id="vehicleInfo"></div>
     <div class="form-body" id="engFormBody"></div>
     <div class="modal-footer">
-      <div class="status-wrap">Status: <span class="status-badge" id="modalStatus">—</span></div>
+      <div class="status-wrap">Status: <span class="status-badge" id="modalStatus">—</span><span id="modalDate" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);"></span></div>
       <div style="display:flex;gap:8px;">
         <button onclick="closeEntryModal()">Cancel</button>
         <button class="primary" onclick="saveEntry()">Save &amp; Sync</button>
@@ -1362,7 +1362,7 @@ function renderGrid() {
       const grid=document.createElement('div'); grid.className='vehicle-grid';
       groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; const submittedDate = v.engineer_data && v.engineer_data.submitted_date;
         const showDate = submittedDate && (v.update_status === 'In Progress' || v.update_status === 'Complete');
-        card.innerHTML = v.body_number + (showDate ? `<span class="card-date">${submittedDate}</span>` : '');
+        card.innerHTML = `<span>${v.body_number}</span><span class="card-date" style="visibility:${showDate?'visible':'hidden'}">${showDate ? submittedDate : '&nbsp;'}</span>`;
         card.title = v.update_status + (showDate ? ' — ' + submittedDate : ''); card.onclick=()=>{ if(activeCampaign&&activeCampaign.status==='closed'){ showAlertModal('Campaign Closed','Campaign closed'); return; } refreshAndOpenModal(v.body_number); }; grid.appendChild(card); });
       sec.appendChild(grid); wrap.appendChild(sec);
     });
@@ -1430,6 +1430,7 @@ function openEntryModal(idx) {
   }
 
   updateModalStatus();
+  updateModalDate(v);
   document.getElementById('entryModalOverlay').classList.add('open');
   fields.filter(f=>f.type!=='toggle').forEach(f=>{ const el=document.getElementById('ef_'+f.id); if(el) el.addEventListener('input',updateModalStatus); });
 }
@@ -1478,6 +1479,14 @@ function computeStatus() {
 function updateModalStatus() {
   const s=computeStatus(); const el=document.getElementById('modalStatus');
   el.className='status-badge '+s.replace(' ','-'); el.textContent=s;
+}
+
+function updateModalDate(v) {
+  const dateEl = document.getElementById('modalDate');
+  if (!dateEl) return;
+  const sd = v && v.engineer_data && v.engineer_data.submitted_date;
+  const showDate = sd && (v.update_status === 'In Progress' || v.update_status === 'Complete');
+  dateEl.textContent = showDate ? sd : '';
 }
 
 async function saveEntry() {
