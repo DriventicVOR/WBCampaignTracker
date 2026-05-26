@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.15</div>
+  <div class="version-badge">v2.4.16</div>
   <div class="spacer"></div>
 </header>
 
@@ -1614,7 +1614,7 @@ function renderGraph() {
   // Find the highest individual series value across all data points
   const maxSeriesVal = Math.max(
     ...pendingPts,
-    ...progressPts,
+    ...progressPts.map((v, i) => v + completePts[i]),
     ...completePts,
     1
   );
@@ -1629,7 +1629,7 @@ function renderGraph() {
       labels,
       datasets: [
         {
-          // Dataset index 0 — Pending: line only, no fill
+          // Pending: unfilled line
           label: 'Pending',
           data: pendingPts,
           fill: false,
@@ -1640,19 +1640,7 @@ function renderGraph() {
           tension: 0.3,
         },
         {
-          // Dataset index 1 — In Progress: fills yellow down to Complete line (dataset index 2)
-          label: 'In Progress',
-          data: progressPts,
-          fill: '+1',
-          backgroundColor: 'rgba(210,153,34,0.3)',
-          borderColor: '#d29922',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: '#d29922',
-          tension: 0.3,
-        },
-        {
-          // Dataset index 2 — Complete: fills green from origin up to Complete line
+          // Complete: green line at completePts, green fill from zero
           label: 'Complete',
           data: completePts,
           fill: 'origin',
@@ -1661,6 +1649,19 @@ function renderGraph() {
           borderWidth: 2,
           pointRadius: 3,
           pointBackgroundColor: '#3fb950',
+          tension: 0.3,
+        },
+        {
+          // In Progress + Complete: yellow line drawn at inProg+comp height,
+          // yellow fill between this line and the Complete line below it
+          label: 'In Progress',
+          data: progressPts.map((v, i) => v + completePts[i]),
+          fill: '-1',
+          backgroundColor: 'rgba(210,153,34,0.3)',
+          borderColor: '#d29922',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d29922',
           tension: 0.3,
         },
       ],
@@ -1681,7 +1682,13 @@ function renderGraph() {
           titleColor: '#e6edf3',
           bodyColor: '#7d8590',
           callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`
+            label: ctx => {
+              const i = ctx.dataIndex;
+              if (ctx.dataset.label === 'In Progress') {
+                return ` In Progress: ${progressPts[i]}`;
+              }
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y}`;
+            }
           }
         },
       },
