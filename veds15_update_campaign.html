@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.10</div>
+  <div class="version-badge">v2.4.11</div>
   <div class="spacer"></div>
 </header>
 
@@ -1532,6 +1532,14 @@ function renderGraph() {
 
   const total = filtered.length;
 
+  // Update graph stats bar
+  const gCounts = { 'Pending':0, 'In Progress':0, 'Complete':0 };
+  filtered.forEach(v => { if (gCounts[v.update_status] !== undefined) gCounts[v.update_status]++; });
+  document.getElementById('graphStatPending').textContent  = gCounts['Pending'];
+  document.getElementById('graphStatProgress').textContent = gCounts['In Progress'];
+  document.getElementById('graphStatComplete').textContent = gCounts['Complete'];
+  document.getElementById('graphStatTotal').textContent    = filtered.length;
+
   // Collect all unique submitted dates; add today so the current state is always plotted
   const today = new Date().toISOString().slice(0,10);
   const dateSet = new Set([today]);
@@ -1577,6 +1585,10 @@ function renderGraph() {
   canvas.height = Math.min(480, Math.round((canvas.width || 600) * 0.55));
 
   const ctx = canvas.getContext('2d');
+  // Ensure Filler plugin registered (required for fill: in Chart.js 4)
+  if (Chart.registry && !Chart.registry.plugins.get('filler')) {
+    Chart.register(Chart.Filler);
+  }
   chartInstance = new Chart(ctx, {
     type: 'line',
     data: {
