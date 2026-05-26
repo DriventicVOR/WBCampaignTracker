@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.14</div>
+  <div class="version-badge">v2.4.15</div>
   <div class="spacer"></div>
 </header>
 
@@ -299,10 +299,6 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="filter-item">
       <label>Depot</label>
       <select id="graphDepotFilter" onchange="renderGraph()"><option value="">— All —</option></select>
-    </div>
-    <div class="filter-item">
-      <label>Search</label>
-      <input class="search-input" id="graphSearchInput" type="text" placeholder="Body / Fleet / Reg..." oninput="renderGraph()">
     </div>
   </div>
   <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
@@ -522,12 +518,29 @@ async function init() {
 // ══ TABS ══
 function switchTab(t) {
   document.getElementById('pane-tracker').style.display = t==='tracker'?'block':'none';
+  if (t==='tracker') {
+    // Sync tracker operator/depot filters to match graph's current selection
+    const gOp  = document.getElementById('graphOperatorFilter').value;
+    const gDep = document.getElementById('graphDepotFilter').value;
+    if (document.getElementById('operatorFilter').value !== gOp)  { document.getElementById('operatorFilter').value = gOp; }
+    if (document.getElementById('depotFilter').value   !== gDep)  { document.getElementById('depotFilter').value   = gDep; }
+    renderGrid();
+  }
   document.getElementById('pane-graph').style.display   = t==='graph'  ?'block':'none';
   document.getElementById('pane-config').style.display  = t==='config' ?'block':'none';
   document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
   document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
   document.getElementById('tab-config').classList.toggle('active',  t==='config');
-  if (t==='graph') requestAnimationFrame(() => renderGraph());
+  if (t==='graph') {
+    // Sync graph operator/depot filters to match tracker's current selection
+    const tOp  = document.getElementById('operatorFilter').value;
+    const tDep = document.getElementById('depotFilter').value;
+    if (document.getElementById('graphOperatorFilter').value !== tOp)
+      document.getElementById('graphOperatorFilter').value = tOp;
+    if (document.getElementById('graphDepotFilter').value !== tDep)
+      document.getElementById('graphDepotFilter').value = tDep;
+    requestAnimationFrame(() => renderGraph());
+  }
 }
 
 // ══ CAMPAIGN DROPDOWN ══
@@ -1278,12 +1291,12 @@ function getFilteredExcept(except, prefix='') {
   const opId  = P ? 'graphOperatorFilter' : 'operatorFilter';
   const depId = P ? 'graphDepotFilter'    : 'depotFilter';
   const stId  = P ? null                  : 'statusFilter';
-  const qId   = P ? 'graphSearchInput'    : 'searchInput';
+  const qId   = P ? null : 'searchInput';
 
   const op  = except==='op'  ? '' : elVal(opId);
   const dep = except==='dep' ? '' : elVal(depId);
   const st  = except==='st'  ? '' : (stId ? elVal(stId) : '');
-  const q   = except==='q'   ? '' : elVal(qId).trim().toUpperCase();
+  const q   = (except==='q' || !qId) ? '' : elVal(qId).trim().toUpperCase();
 
   return vehicles.filter(v=>{
     if(op && v.account_name!==op) return false;
@@ -1307,14 +1320,13 @@ function updateGraphContextFilters() {
   // Context filtering for graph uses graphVehicles
   const op  = document.getElementById('graphOperatorFilter').value;
   const dep = document.getElementById('graphDepotFilter').value;
-  const q   = document.getElementById('graphSearchInput').value.trim().toUpperCase();
   const forOp  = graphVehicles.filter(v => {
     if (dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
-    if (q && !matchesSearch(v,q)) return false; return true;
+    return true;
   });
   const forDep = graphVehicles.filter(v => {
     if (op && v.account_name !== op) return false;
-    if (q && !matchesSearch(v,q)) return false; return true;
+    return true;
   });
   populateSelect('graphOperatorFilter', forOp.map(v=>v.account_name), '— All —');
   populateSelect('graphDepotFilter',    forDep.map(v=>v.depot),       '— All —', true);
@@ -1544,7 +1556,6 @@ function renderGraph() {
   // Apply graph filters
   const opFilter  = document.getElementById('graphOperatorFilter').value;
   const depFilter = document.getElementById('graphDepotFilter').value;
-  const search    = document.getElementById('graphSearchInput').value.trim().toUpperCase();
 
   const filtered = graphVehicles.filter(v => {
     if (opFilter && v.account_name !== opFilter) return false;
@@ -1552,7 +1563,6 @@ function renderGraph() {
       if (depFilter === '__unknown__' && v.depot) return false;
       if (depFilter !== '__unknown__' && v.depot !== depFilter) return false;
     }
-    if (search && !matchesSearch(v, search)) return false;
     return true;
   });
   updateGraphContextFilters();
