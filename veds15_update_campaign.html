@@ -217,7 +217,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.22</div>
+  <div class="version-badge">v2.4.23</div>
   <div class="spacer"></div>
 </header>
 
@@ -232,7 +232,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   <div class="tracker-toolbar">
     <div class="campaign-select-wrap">
       <label>Campaign</label>
-      <select id="campaignSelect" onchange="onCampaignChange()" onfocus="this.value=''">
+      <select id="campaignSelect" onchange="onCampaignChange()">
         <option value="">— Select a campaign —</option>
       </select>
     </div>
@@ -280,7 +280,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
   <div class="tracker-toolbar">
     <div class="campaign-select-wrap">
       <label>Campaign</label>
-      <select id="graphCampaignSelect" onchange="onGraphCampaignChange()" onfocus="this.value=''">
+      <select id="graphCampaignSelect" onchange="onGraphCampaignChange()">
         <option value="">— Select a campaign —</option>
       </select>
     </div>
