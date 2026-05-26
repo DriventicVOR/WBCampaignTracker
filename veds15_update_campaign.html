@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.8</div>
+  <div class="version-badge">v2.4.10</div>
   <div class="spacer"></div>
 </header>
 
@@ -276,6 +276,21 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <!-- ══ GRAPH ══ -->
 <div id="pane-graph" style="display:none;flex:1;overflow-y:auto;">
+  <div class="tracker-toolbar">
+    <div class="campaign-select-wrap">
+      <label>Campaign</label>
+      <select id="graphCampaignSelect" onchange="onGraphCampaignChange()">
+        <option value="">— Select a campaign —</option>
+      </select>
+    </div>
+    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;display:none;">— Select a campaign to view graph —</span>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><span class="dot pending"></span> Pending <strong id="graphStatPending">0</strong></div>
+    <div class="stat"><span class="dot progress"></span> In Progress <strong id="graphStatProgress">0</strong></div>
+    <div class="stat"><span class="dot complete"></span> Complete <strong id="graphStatComplete">0</strong></div>
+    <div class="stat" style="margin-left:auto;"><strong id="graphStatTotal">0</strong> <span>vehicles shown</span></div>
+  </div>
   <div class="filter-bar">
     <div class="filter-item">
       <label>Operator</label>
@@ -289,7 +304,6 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
       <label>Search</label>
       <input class="search-input" id="graphSearchInput" type="text" placeholder="Body / Fleet / Reg..." oninput="renderGraph()">
     </div>
-    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;display:none;">— Select a campaign to view graph —</span>
   </div>
   <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
     <canvas id="progressChart" style="width:100%;max-height:480px;"></canvas>
@@ -428,11 +442,13 @@ const STORAGE_BASE  = `${SUPABASE_URL}/storage/v1/object`;
 const SB_HEADERS    = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
 
 // ══ STATE ══
-let campaignList   = [];
-let vehicles       = [];
-let activeCampaign = null;
-let currentIdx     = null;
-let toggleStates   = {};
+let campaignList        = [];
+let vehicles            = [];
+let activeCampaign      = null;
+let graphVehicles       = [];
+let graphActiveCampaign = null;
+let currentIdx          = null;
+let toggleStates        = {};
 
 // ══ SUPABASE ══
 async function sbGet(path) {
@@ -511,21 +527,32 @@ function switchTab(t) {
   document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
   document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
   document.getElementById('tab-config').classList.toggle('active',  t==='config');
-  if (t==='graph') requestAnimationFrame(() => renderGraph());
+  if (t==='graph') {
+    // Sync graph campaign dropdown with tracker selection if not already set
+    const gSel = document.getElementById('graphCampaignSelect');
+    if (!gSel.value && activeCampaign) {
+      gSel.value = activeCampaign.id;
+      onGraphCampaignChange();
+    } else {
+      requestAnimationFrame(() => renderGraph());
+    }
+  }
 }
 
 // ══ CAMPAIGN DROPDOWN ══
 function refreshCampaignDropdown() {
-  const sel = document.getElementById('campaignSelect');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— Select a campaign —</option>';
-  campaignList.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c.id;
-    o.textContent = `${c.name}  [${c.status.toUpperCase()}]`;
-    sel.appendChild(o);
-  });
-  if (cur) sel.value = cur;
+  for (const id of ['campaignSelect', 'graphCampaignSelect']) {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Select a campaign —</option>';
+    campaignList.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = `${c.name}  [${c.status.toUpperCase()}]`;
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+  }
 }
 
 async function onCampaignChange() {
@@ -1246,8 +1273,18 @@ function updateContextFilters() {
 }
 
 function updateGraphContextFilters() {
-  const forOp  = getFilteredExcept('op',  'graph');
-  const forDep = getFilteredExcept('dep', 'graph');
+  // Context filtering for graph uses graphVehicles
+  const op  = document.getElementById('graphOperatorFilter').value;
+  const dep = document.getElementById('graphDepotFilter').value;
+  const q   = document.getElementById('graphSearchInput').value.trim().toUpperCase();
+  const forOp  = graphVehicles.filter(v => {
+    if (dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
+    if (q && !matchesSearch(v,q)) return false; return true;
+  });
+  const forDep = graphVehicles.filter(v => {
+    if (op && v.account_name !== op) return false;
+    if (q && !matchesSearch(v,q)) return false; return true;
+  });
   populateSelect('graphOperatorFilter', forOp.map(v=>v.account_name), '— All —');
   populateSelect('graphDepotFilter',    forDep.map(v=>v.depot),       '— All —', true);
 }
@@ -1465,9 +1502,9 @@ function renderGraph() {
   const emptyEl = document.getElementById('graphEmpty');
   const canvas  = document.getElementById('progressChart');
 
-  if (!activeCampaign || vehicles.length === 0) {
-    noMsg.style.display   = activeCampaign ? 'none' : 'inline';
-    emptyEl.style.display = activeCampaign ? 'block' : 'none';
+  if (!graphActiveCampaign || graphVehicles.length === 0) {
+    noMsg.style.display   = graphActiveCampaign ? 'none' : 'inline';
+    emptyEl.style.display = graphActiveCampaign ? 'block' : 'none';
     canvas.style.display  = 'none';
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
     return;
@@ -1478,7 +1515,7 @@ function renderGraph() {
   const depFilter = document.getElementById('graphDepotFilter').value;
   const search    = document.getElementById('graphSearchInput').value.trim().toUpperCase();
 
-  const filtered = vehicles.filter(v => {
+  const filtered = graphVehicles.filter(v => {
     if (opFilter && v.account_name !== opFilter) return false;
     if (depFilter) {
       if (depFilter === '__unknown__' && v.depot) return false;
@@ -1528,7 +1565,7 @@ function renderGraph() {
   // Find the highest individual series value across all data points
   const maxSeriesVal = Math.max(
     ...pendingPts,
-    ...progressPts.map((v,i) => v + completePts[i]),
+    ...progressPts,
     ...completePts,
     1
   );
@@ -1546,28 +1583,30 @@ function renderGraph() {
       labels,
       datasets: [
         {
-          label: 'In Progress',
-          data: progressPts.map((v,i) => v + completePts[i]), // stacked on top of complete
-          fill: 'origin',
-          backgroundColor: 'rgba(210,153,34,0.25)',
-          borderColor: '#d29922',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: '#d29922',
-          tension: 0.3,
-          order: 2,
-        },
-        {
+          // Complete: true values, fills green from zero up to the Complete line
           label: 'Complete',
           data: completePts,
-          fill: '-1',  // fill to the previous dataset (In Progress) — renders on top
-          backgroundColor: 'rgba(63,185,80,0.25)',
+          fill: 'origin',
+          backgroundColor: 'rgba(63,185,80,0.3)',
           borderColor: '#3fb950',
           borderWidth: 2,
           pointRadius: 3,
           pointBackgroundColor: '#3fb950',
           tension: 0.3,
           order: 1,
+        },
+        {
+          // In Progress: true values (not stacked), fills yellow between In Progress line and Complete line
+          label: 'In Progress',
+          data: progressPts,
+          fill: '-1',  // fills between this line and Complete (the previous dataset)
+          backgroundColor: 'rgba(210,153,34,0.3)',
+          borderColor: '#d29922',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d29922',
+          tension: 0.3,
+          order: 2,
         },
         {
           label: 'Pending',
@@ -1578,7 +1617,7 @@ function renderGraph() {
           pointRadius: 3,
           pointBackgroundColor: '#f85149',
           tension: 0.3,
-          order: 0,
+          order: 3,
         },
       ],
     },
@@ -1596,12 +1635,7 @@ function renderGraph() {
           titleColor: '#e6edf3',
           bodyColor: '#7d8590',
           callbacks: {
-            label: ctx => {
-              const ds = ctx.dataset.label;
-              let val = ctx.parsed.y;
-              if (ds === 'Complete') val = val - progressPts[ctx.dataIndex];
-              return ` ${ds}: ${val}`;
-            }
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}`
           }
         },
       },
