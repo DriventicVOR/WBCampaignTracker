@@ -217,7 +217,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.24</div>
+  <div class="version-badge">v2.4.26</div>
   <div class="spacer"></div>
 </header>
 
@@ -577,9 +577,13 @@ async function loadCampaign(id) {
     document.getElementById('dropZone').classList.add('disabled');
     document.getElementById('btnRefresh').disabled = true;
     resetStats(); resetGraphStats();
-    // Clear the grid content directly
+    // Clear grid
     document.getElementById('trackerContent').innerHTML = '<div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>';
+    // Clear graph
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    document.getElementById('progressChart').style.display = 'none';
+    document.getElementById('graphEmpty').style.display    = 'none';
+    document.getElementById('graphNoCampaign').style.display = 'inline';
     return;
   }
 
@@ -1534,6 +1538,14 @@ function closeConfirmModal() {
 
 function resetStats() {
   ['statPending','statProgress','statComplete','statTotal'].forEach(id => { document.getElementById(id).textContent = '0'; });
+}
+
+function resetGraphStats() {
+  ['graphStatPending','graphStatProgress','graphStatComplete','graphStatTotal'].forEach(id => { document.getElementById(id).textContent = '0'; });
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  const pc = document.getElementById('progressChart'); if (pc) pc.style.display = 'none';
+  const ge = document.getElementById('graphEmpty');    if (ge) ge.style.display = 'none';
+  const gn = document.getElementById('graphNoCampaign'); if (gn) gn.style.display = 'inline';
 }
 
 function setTrackerLoading(msg) { document.getElementById('trackerContent').innerHTML=`<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`; }
