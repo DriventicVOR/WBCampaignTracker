@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.13</div>
+  <div class="version-badge">v2.4.14</div>
   <div class="spacer"></div>
 </header>
 
@@ -1619,7 +1619,30 @@ function renderGraph() {
       labels,
       datasets: [
         {
-          // Complete: true values, fills green from zero up to the Complete line
+          // Dataset index 0 — Pending: line only, no fill
+          label: 'Pending',
+          data: pendingPts,
+          fill: false,
+          borderColor: '#f85149',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#f85149',
+          tension: 0.3,
+        },
+        {
+          // Dataset index 1 — In Progress: fills yellow down to Complete line (dataset index 2)
+          label: 'In Progress',
+          data: progressPts,
+          fill: '+1',
+          backgroundColor: 'rgba(210,153,34,0.3)',
+          borderColor: '#d29922',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d29922',
+          tension: 0.3,
+        },
+        {
+          // Dataset index 2 — Complete: fills green from origin up to Complete line
           label: 'Complete',
           data: completePts,
           fill: 'origin',
@@ -1629,31 +1652,6 @@ function renderGraph() {
           pointRadius: 3,
           pointBackgroundColor: '#3fb950',
           tension: 0.3,
-          order: 1,
-        },
-        {
-          // In Progress: true values (not stacked), fills yellow between In Progress line and Complete line
-          label: 'In Progress',
-          data: progressPts,
-          fill: '-1',  // fills between this line and Complete (the previous dataset)
-          backgroundColor: 'rgba(210,153,34,0.3)',
-          borderColor: '#d29922',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: '#d29922',
-          tension: 0.3,
-          order: 2,
-        },
-        {
-          label: 'Pending',
-          data: pendingPts,
-          fill: false,
-          borderColor: '#f85149',
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: '#f85149',
-          tension: 0.3,
-          order: 3,
         },
       ],
     },
