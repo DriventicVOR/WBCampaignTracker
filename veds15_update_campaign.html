@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.16</div>
+  <div class="version-badge">v2.4.17</div>
   <div class="spacer"></div>
 </header>
 
@@ -532,13 +532,18 @@ function switchTab(t) {
   document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
   document.getElementById('tab-config').classList.toggle('active',  t==='config');
   if (t==='graph') {
-    // Sync graph operator/depot filters to match tracker's current selection
+    // Sync graph campaign, vehicles and filters from tracker state
+    if (activeCampaign && graphActiveCampaign !== activeCampaign) {
+      graphActiveCampaign = activeCampaign;
+      graphVehicles = vehicles;
+      document.getElementById('graphCampaignSelect').value = activeCampaign.id;
+      populateGraphFilters();
+    }
+    // Sync operator/depot filters
     const tOp  = document.getElementById('operatorFilter').value;
     const tDep = document.getElementById('depotFilter').value;
-    if (document.getElementById('graphOperatorFilter').value !== tOp)
-      document.getElementById('graphOperatorFilter').value = tOp;
-    if (document.getElementById('graphDepotFilter').value !== tDep)
-      document.getElementById('graphDepotFilter').value = tDep;
+    document.getElementById('graphOperatorFilter').value = tOp;
+    document.getElementById('graphDepotFilter').value   = tDep;
     requestAnimationFrame(() => renderGraph());
   }
 }
