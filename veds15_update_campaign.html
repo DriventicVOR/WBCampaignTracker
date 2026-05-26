@@ -216,7 +216,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v2.4.12</div>
+  <div class="version-badge">v2.4.13</div>
   <div class="spacer"></div>
 </header>
 
@@ -1229,8 +1229,11 @@ async function refreshCampaignData() {
 function populateFilters() {
   populateSelect('operatorFilter', vehicles.map(v=>v.account_name), '— All —');
   populateSelect('depotFilter',    vehicles.map(v=>v.depot),        '— All —', true);
-  populateSelect('graphOperatorFilter', vehicles.map(v=>v.account_name), '— All —');
-  populateSelect('graphDepotFilter',    vehicles.map(v=>v.depot),        '— All —', true);
+}
+
+function populateGraphFilters() {
+  populateSelect('graphOperatorFilter', graphVehicles.map(v=>v.account_name), '— All —');
+  populateSelect('graphDepotFilter',    graphVehicles.map(v=>v.depot),        '— All —', true);
 }
 
 function populateSelect(id, values, placeholder, includeUnknown=false) {
