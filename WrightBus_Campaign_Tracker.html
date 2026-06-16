@@ -230,6 +230,13 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 /* USER MANAGEMENT in config */
 .user-row{display:grid;grid-template-columns:1fr 100px 60px auto;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
 .user-row input{font-size:13px;width:100%;}
+/* Graph toggle panel */
+.graph-toggle-panel{padding:10px 24px;display:none;flex-direction:column;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);}
+.toggle-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.toggle-group-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);white-space:nowrap;width:60px;}
+.tog-btn{font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s;user-select:none;}
+.tog-btn.active{color:#fff;border-color:transparent;}
+.tog-btn.u-active{background:var(--accent2);border-color:var(--accent);color:#fff;}
 .level-badge{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;text-align:center;}
 .level-badge.l1{background:var(--progress-bg);color:var(--progress);}
 .level-badge.l2{background:var(--complete-bg);color:var(--complete);}
@@ -272,7 +279,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v3.0.11</div>
+  <div class="version-badge">v3.1.6</div>
   <div class="spacer"></div>
   <div class="user-badge" id="userBadge" style="display:none;">
     <strong id="userBadgeName"></strong>
@@ -299,6 +306,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <input type="file" id="fileInput" accept=".xlsx" style="display:none">
     <div class="spacer" style="flex:1"></div>
     <button id="btnRefresh" class="ghost" onclick="refreshCampaignData()" disabled title="Pull latest data from Supabase">↻ Refresh</button>
+    <button id="btnExport" class="ghost" onclick="exportCSV()" disabled style="display:none;" title="Export campaign data to CSV">⬇ Export CSV</button>
   </div>
   <div class="stats-bar">
     <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">0</strong></div>
@@ -365,7 +373,23 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
       <select id="graphDepotFilter" onchange="renderGraph()"><option value="">— All —</option></select>
     </div>
   </div>
-  <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
+  <div class="graph-toggle-panel" id="graphTogglePanel">
+    <div class="toggle-group">
+      <span class="toggle-group-label">View</span>
+      <button class="tog-btn u-active" id="togViewAll" onclick="setGraphView('all')">All Users</button>
+      <button class="tog-btn" id="togViewUser" onclick="setGraphView('user')">Per User</button>
+    </div>
+    <div class="toggle-group" id="togUserGroup" style="display:none;">
+      <span class="toggle-group-label">Users</span>
+      <div id="togUserBtns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="toggle-group" id="togStatusGroup" style="display:none;">
+      <span class="toggle-group-label">Status</span>
+      <button class="tog-btn active" id="togStIn" onclick="toggleStat('In Progress')" style="background:var(--progress);border-color:var(--progress);">In Progress</button>
+      <button class="tog-btn active" id="togStComp" onclick="toggleStat('Complete')" style="background:var(--complete);border-color:var(--complete);">Complete</button>
+    </div>
+  </div>
+  <div style="padding:16px 24px 24px;position:relative;min-height:260px;">
     <canvas id="progressChart"></canvas>
     <div id="graphEmpty" style="display:none;padding:60px;text-align:center;color:var(--muted);font-size:14px;">No dated records yet. Save engineer entries to populate the graph.</div>
   </div>
@@ -659,6 +683,7 @@ async function loadCampaign(id) {
     document.getElementById('graphCampaignSelect').value = '';
     document.getElementById('dropZone').classList.add('disabled');
     document.getElementById('btnRefresh').disabled = true;
+    document.getElementById('btnExport').disabled  = true;
     clearAllFilters();
     resetStats(); resetGraphStats();
     document.getElementById('trackerContent').innerHTML = '<div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>';
@@ -688,6 +713,7 @@ async function loadCampaign(id) {
       renderGrid();
     }
     document.getElementById('btnRefresh').disabled = false;
+    document.getElementById('btnExport').disabled  = false;
     document.getElementById('graphNoCampaign').style.display = 'none';
     // Re-render graph if it's visible
     if (document.getElementById('pane-graph').style.display !== 'none') renderGraph();
@@ -1704,6 +1730,63 @@ async function saveEntry() {
   showToast(`Saved — ${v.body_number} → ${v.update_status}`,'success');
 }
 
+// ══ CSV EXPORT ══
+function exportCSV() {
+  if (!activeCampaign || vehicles.length === 0) return;
+
+  // Campaign fields from schema
+  const schema      = activeCampaign.schema || [];
+  const fields      = flatFields(schema);
+  const fieldIds    = fields.map(f => f.id);
+  const fieldLabels = fields.map(f => f.label);
+
+  // Headers — core fields + campaign-specific fields
+  const headers = [
+    'Body Number', 'Fleet Number', 'Operator', 'Depot',
+    'Update Status', 'Update Date', 'User',
+    ...fieldLabels, 'Notes'
+  ];
+
+  // Data rows
+  const rows = vehicles.map(v => {
+    const ed = v.engineer_data || {};
+    const base = [
+      v.body_number      || '',
+      v.fleet_number     || '',
+      v.operator         || '',
+      v.depot            || '',
+      v.update_status    || '',
+      ed.submitted_date  || '',
+      ed.updated_by_name || '',
+    ];
+    const engFields = fieldIds.map(id => {
+      const val = ed[id];
+      if (val === true)  return 'Y';
+      if (val === false) return 'N';
+      return val !== null && val !== undefined ? String(val) : '';
+    });
+    return [...base, ...engFields, ed.notes || ''];
+  });
+
+  // Escape a CSV cell
+  const cell = v => {
+    const s = String(v);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+
+  const csv = [headers, ...rows].map(row => row.map(cell).join(',')).join('\n');
+  const safeName = activeCampaign.name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const filename = safeName + '_Export_' + new Date().toISOString().slice(0,10) + '.csv';
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported ' + vehicles.length + ' records to ' + filename, 'success');
+}
+
 // ══ HELPERS ══
 function showAlertModal(title, body) {
   document.getElementById('alertModalTitle').textContent = title;
@@ -1769,6 +1852,151 @@ function yAxisConfig(maxVal) {
   return { step: 500, yMax: Math.ceil(maxVal / 500) * 500 };
 }
 
+// ── GRAPH TOGGLE STATE ──
+let _graphView       = 'all';     // 'all' | 'user'
+let _activeUsers     = new Set(); // user ids active in per-user view
+let _activeStatuses  = new Set(['In Progress', 'Complete']); // statuses shown per-user
+
+// Palette for per-user lines
+const USER_COLOURS = ['#58a6ff','#f0883e','#bc8cff','#3fb950','#d29922','#ff7b72','#79c0ff','#56d364'];
+const _userColourMap = {};  // {userId: colour} — assigned once per session, never changes
+
+function assignUserColours() {
+  // Assign colours to all L1 users in stable ID order — never re-orders
+  const l1Users = userList_.filter(u => u.level === 1);
+  l1Users.forEach((u, i) => {
+    if (!_userColourMap[u.id]) {
+      _userColourMap[u.id] = USER_COLOURS[Object.keys(_userColourMap).length % USER_COLOURS.length];
+    }
+  });
+}
+
+function getUserColour(userId) {
+  return _userColourMap[userId] || '#7d8590';
+}
+
+function setGraphView(view) {
+  _graphView = view;
+  document.getElementById('togViewAll').classList.toggle('u-active',  view === 'all');
+  document.getElementById('togViewUser').classList.toggle('u-active', view === 'user');
+  document.getElementById('togUserGroup').style.display   = view === 'user' ? 'flex' : 'none';
+  document.getElementById('togStatusGroup').style.display = view === 'user' ? 'flex' : 'none';
+  renderGraph();
+}
+
+function toggleStat(status) {
+  if (_activeStatuses.has(status)) _activeStatuses.delete(status);
+  else _activeStatuses.add(status);
+  const btnId = status === 'In Progress' ? 'togStIn' : 'togStComp';
+  const btn   = document.getElementById(btnId);
+  const isOn  = _activeStatuses.has(status);
+  const col   = status === 'In Progress' ? 'var(--progress)' : 'var(--complete)';
+  btn.style.background   = isOn ? col : 'var(--surface2)';
+  btn.style.borderColor  = isOn ? col : 'var(--border)';
+  btn.style.color        = isOn ? '#fff' : 'var(--muted)';
+  renderGraph();
+}
+
+function toggleUser(uid) {
+  if (_activeUsers.has(uid)) _activeUsers.delete(uid);
+  else _activeUsers.add(uid);
+  document.querySelectorAll('#togUserBtns .tog-btn').forEach(btn => {
+    btn.classList.toggle('u-active', _activeUsers.has(btn.dataset.uid));
+  });
+  renderGraph();
+}
+
+function rebuildUserToggles() {
+  const btns = document.getElementById('togUserBtns');
+  if (!btns) return;
+  btns.innerHTML = '';
+  // Find users who have submitted at least one record in current filtered set
+  const seenIds = new Set();
+  graphVehicles.forEach(v => {
+    const id = v.engineer_data && v.engineer_data.updated_by_id;
+    if (id && !seenIds.has(id)) seenIds.add(id);
+  });
+  // Also include assigned users for this campaign
+  const assigned = (graphActiveCampaign && graphActiveCampaign.assignedUsers) || [];
+  const allIds   = [...new Set([...seenIds, ...assigned])];
+  const usersToShow = userList_.filter(u => allIds.includes(u.id) && u.level === 1);
+
+  usersToShow.forEach((u) => {
+    const col = getUserColour(u.id);
+    const btn = document.createElement('button');
+    btn.className = 'tog-btn' + (_activeUsers.has(u.id) ? ' u-active' : '');
+    btn.dataset.uid = u.id;
+    btn.textContent = u.name;
+    btn.style.background  = _activeUsers.has(u.id) ? col : 'var(--surface2)';
+    btn.style.borderColor = _activeUsers.has(u.id) ? col : 'var(--border)';
+    btn.style.color       = _activeUsers.has(u.id) ? '#fff' : 'var(--muted)';
+    btn.onclick = () => {
+      if (_activeUsers.has(u.id)) { _activeUsers.delete(u.id); btn.classList.remove('u-active'); btn.style.background='var(--surface2)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--muted)'; }
+      else { _activeUsers.add(u.id); btn.classList.add('u-active'); btn.style.background=col; btn.style.borderColor=col; btn.style.color='#fff'; }
+      renderGraph();
+    };
+    btns.appendChild(btn);
+  });
+}
+
+function showGraphTogglePanel() {
+  const panel = document.getElementById('graphTogglePanel');
+  if (panel && currentUser && currentUser.level === 2) panel.style.display = 'flex';
+}
+
+function renderGraphPerUser(canvas, filtered, labels) {
+  const assigned = (graphActiveCampaign && graphActiveCampaign.assignedUsers) || [];
+  const seenIds  = new Set(filtered.map(v => v.engineer_data && v.engineer_data.updated_by_id).filter(Boolean));
+  const allIds   = [...new Set([...seenIds, ...assigned])];
+  const users    = userList_.filter(u => allIds.includes(u.id) && u.level === 1 && _activeUsers.has(u.id));
+
+  const datasets = [];
+  users.forEach((u) => {
+    const col = getUserColour(u.id);
+    const pts = labels.map(date => {
+      let count = 0;
+      filtered.forEach(v => {
+        const sd  = v.engineer_data && v.engineer_data.submitted_date;
+        const uid = v.engineer_data && v.engineer_data.updated_by_id;
+        if (sd && sd <= date && uid === u.id && _activeStatuses.has(v.update_status)) count++;
+      });
+      return count;
+    });
+    datasets.push({
+      label: u.name,
+      data: pts,
+      fill: false,
+      borderColor: col,
+      backgroundColor: col,
+      borderWidth: 2,
+      pointRadius: 3,
+      pointBackgroundColor: col,
+      tension: 0.3,
+    });
+  });
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  const ctx = canvas.getContext('2d');
+  const maxVal = datasets.length ? Math.max(...datasets.flatMap(d => d.data), 1) : 1;
+  const { step: yStep, yMax } = yAxisConfig(maxVal);
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true, aspectRatio: 3.4,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e6edf3', font: { family: 'Inter', size: 12 }, boxWidth: 14 } },
+        tooltip: { backgroundColor:'#161b22', borderColor:'#30363d', borderWidth:1, titleColor:'#e6edf3', bodyColor:'#7d8590' },
+      },
+      scales: {
+        x: { ticks:{ color:'#7d8590', font:{ family:'Share Tech Mono', size:11 } }, grid:{ color:'rgba(48,54,61,0.6)' } },
+        y: { beginAtZero:true, max:yMax, ticks:{ color:'#7d8590', font:{ family:'Inter', size:11 }, stepSize:yStep }, grid:{ color:'rgba(48,54,61,0.6)' } },
+      },
+    },
+  });
+}
+
 function renderGraph() {
   const noMsg   = document.getElementById('graphNoCampaign');
   const emptyEl = document.getElementById('graphEmpty');
@@ -1799,6 +2027,25 @@ function renderGraph() {
   noMsg.style.display   = 'none';
   emptyEl.style.display = 'none';
   canvas.style.display  = 'block';
+  showGraphTogglePanel();
+  rebuildUserToggles();
+
+  // Per-user mode — hand off to separate renderer
+  if (_graphView === 'user') {
+    const today2 = new Date().toISOString().slice(0,10);
+    const dateSet2 = new Set([today2]);
+    filtered.forEach(v => { if (v.engineer_data && v.engineer_data.submitted_date) dateSet2.add(v.engineer_data.submitted_date); });
+    const labels2 = [...dateSet2].sort();
+    // Update stats
+    const gCounts2 = { 'Pending':0, 'In Progress':0, 'Complete':0 };
+    filtered.forEach(v => { if (gCounts2[v.update_status] !== undefined) gCounts2[v.update_status]++; });
+    document.getElementById('graphStatPending').textContent  = gCounts2['Pending'];
+    document.getElementById('graphStatProgress').textContent = gCounts2['In Progress'];
+    document.getElementById('graphStatComplete').textContent = gCounts2['Complete'];
+    document.getElementById('graphStatTotal').textContent    = filtered.length;
+    renderGraphPerUser(canvas, filtered, labels2);
+    return;
+  }
 
   const total = filtered.length;
 
@@ -1898,7 +2145,7 @@ function renderGraph() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: 2,
+      aspectRatio: 3.4,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
@@ -2006,6 +2253,12 @@ function applyAccessLevel() {
   // User filter visible to L2 only
   const ufi = document.getElementById('userFilterItem');
   if (ufi) ufi.style.display = isL2 ? '' : 'none';
+  // Graph toggle panel visible to L2 only
+  const gtp = document.getElementById('graphTogglePanel');
+  if (gtp) gtp.style.display = isL2 ? 'flex' : 'none';
+  // Export button visible to L2 only
+  const btnExp = document.getElementById('btnExport');
+  if (btnExp) btnExp.style.display = isL2 ? '' : 'none';
 }
 
 function isReadOnly() {
@@ -2018,6 +2271,7 @@ async function loadUserList() {
     const data = await sbGet(USERS_FILE);
     userList_ = data && Array.isArray(data) ? data : [];
   } catch(e) { userList_ = []; }
+  assignUserColours();
 }
 
 async function saveUsers() {
@@ -2034,6 +2288,7 @@ async function saveUsers() {
   try {
     await sbPut(USERS_FILE, users);
     userList_ = users;
+    assignUserColours();
     renderUserAssignPickers();
     showToast('Users saved', 'success');
   } catch(e) { showToast('Save failed: ' + e.message, 'error'); }
