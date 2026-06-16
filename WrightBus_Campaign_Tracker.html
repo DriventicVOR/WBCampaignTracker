@@ -90,9 +90,29 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .vehicle-card.status-Complete{background:var(--complete-bg);color:var(--complete);border-color:rgba(63,185,80,.3);}
 
 /* CONFIG */
-.config-wrap{padding:28px 24px;max-width:900px;}
+.config-wrap{padding:28px 24px;}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;}
+@media(max-width:700px){.config-grid{grid-template-columns:1fr;}}
 .config-section{margin-bottom:36px;}
 .config-section h2{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+/* Group manager */
+.group-panel{display:flex;flex-direction:column;gap:10px;}
+.group-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.group-card-header{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);}
+.group-card-title{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:var(--text);flex:1;}
+.group-card-title input{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--accent);width:100%;padding:2px 0;}
+.group-card-title input:focus{outline:none;border-bottom-color:var(--accent);}
+.group-drop-zone{min-height:48px;padding:8px;display:flex;flex-direction:column;gap:4px;}
+.group-drop-zone.drag-over{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:4px;}
+.user-chip{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:grab;user-select:none;transition:box-shadow .1s;}
+.user-chip:hover{box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.user-chip.dragging{opacity:.4;}
+.user-chip-name{font-size:13px;color:var(--text);flex:1;}
+.user-chip-level{font-size:10px;color:var(--muted);font-family:'Share Tech Mono',monospace;}
+.user-chip .chip-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;}
+.user-chip .chip-del:hover{color:var(--pending);}
+.ungrouped-card{border:2px dashed var(--border);border-radius:8px;padding:10px;}
+.ungrouped-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
 .new-campaign-form{display:flex;flex-direction:column;gap:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:20px;}
 .form-row-inline{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
 .field-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px;}
@@ -229,6 +249,21 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 .user-badge button{font-size:11px;padding:3px 8px;}
 /* USER MANAGEMENT in config */
 .user-row{display:grid;grid-template-columns:1fr 100px 60px auto;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
+/* Assign picker modal */
+.assign-group{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px;}
+.assign-group-header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);cursor:pointer;user-select:none;}
+.assign-group-header:hover{background:var(--surface);}
+.assign-group-chevron{font-size:11px;color:var(--muted);transition:transform .2s;}
+.assign-group-chevron.open{transform:rotate(90deg);}
+.assign-group-title{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--text);flex:1;}
+.assign-group-check{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;}
+.assign-group-members{display:none;flex-direction:column;gap:2px;padding:6px 10px;background:var(--bg);}
+.assign-group-members.open{display:flex;}
+.assign-member{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:5px;cursor:pointer;transition:background .1s;}
+.assign-member:hover{background:var(--surface2);}
+.assign-member input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
+.assign-member-name{font-size:13px;color:var(--text);}
+.assign-member-level{font-size:10px;color:var(--muted);margin-left:auto;font-family:'Share Tech Mono',monospace;}
 .user-row input{font-size:13px;width:100%;}
 /* Graph toggle panel */
 .graph-toggle-panel{padding:10px 24px;display:none;flex-direction:column;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);}
@@ -279,7 +314,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v3.1.7</div>
+  <div class="version-badge">v3.2.7</div>
   <div class="spacer"></div>
   <div class="user-badge" id="userBadge" style="display:none;">
     <strong id="userBadgeName"></strong>
@@ -307,6 +342,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div class="spacer" style="flex:1"></div>
     <button id="btnRefresh" class="ghost" onclick="refreshCampaignData()" disabled title="Pull latest data from Supabase">↻ Refresh</button>
     <button id="btnExport" class="ghost" onclick="exportCSV()" disabled style="display:none;" title="Export campaign data to CSV">⬇ Export CSV</button>
+    <button id="btnReset" class="danger" onclick="resetCampaign()" disabled style="display:none;" title="Reset campaign — backs up current data first">⟳ Reset</button>
   </div>
   <div class="stats-bar">
     <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">0</strong></div>
@@ -331,6 +367,10 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
         <option value="In Progress">In Progress</option>
         <option value="Complete">Complete</option>
       </select>
+    </div>
+    <div class="filter-item" id="groupFilterItem" style="display:none;">
+      <label>Group</label>
+      <select id="groupFilter" onchange="onGroupFilterChange()"><option value="">— All —</option></select>
     </div>
     <div class="filter-item" id="userFilterItem" style="display:none;">
       <label>User</label>
@@ -398,56 +438,72 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 <!-- ══ CONFIG ══ -->
 <div id="pane-config" style="display:none;overflow-y:auto;flex:1;">
   <div class="config-wrap">
-    <div class="config-section">
-      <h2>Create New Campaign</h2>
-      <div class="new-campaign-form">
-        <div class="field-group">
-          <label>Campaign Name</label>
-          <input type="text" id="newCampName" placeholder="e.g. VEDs1.5-SW-Update" style="width:100%;">
-        </div>
+    <div class="config-grid">
 
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Initial Fleet File <span style="font-style:italic;text-transform:none;letter-spacing:0;">(required)</span></div>
-          <div class="new-fleet-drop" id="newFleetDrop">⬆ Drop fleet .xlsx here to load vehicles</div>
-          <input type="file" id="newFleetInput" accept=".xlsx" style="display:none">
-          <div id="newDrivelineWrap" style="display:none;margin-top:12px;">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;">Select Driveline Systems to include</div>
-            <div class="driveline-check-list" id="newDrivelineList"></div>
+      <!-- ══ LEFT COLUMN: Campaigns ══ -->
+      <div>
+        <div class="config-section">
+          <h2>Create New Campaign</h2>
+          <div class="new-campaign-form">
+            <div class="field-group">
+              <label>Campaign Name</label>
+              <input type="text" id="newCampName" placeholder="e.g. VEDs1.5-SW-Update" style="width:100%;">
+            </div>
+
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Initial Fleet File <span style="font-style:italic;text-transform:none;letter-spacing:0;">(required)</span></div>
+              <div class="new-fleet-drop" id="newFleetDrop">⬆ Drop fleet .xlsx here to load vehicles</div>
+              <input type="file" id="newFleetInput" accept=".xlsx" style="display:none">
+              <div id="newDrivelineWrap" style="display:none;margin-top:12px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;">Select Driveline Systems to include</div>
+                <div class="driveline-check-list" id="newDrivelineList"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
+              <div class="builder-area" id="newBuilderArea"></div>
+              <div class="builder-toolbar">
+                <button class="ghost" onclick="builderAddField('newBuilderArea')">+ Add Field</button>
+                <button class="ghost" onclick="builderAddGroup('newBuilderArea')">+ Add Group</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);">Assign Users <span style="font-style:italic;text-transform:none;letter-spacing:0;">(L0 = read only · L1 = read &amp; write · L2 see all)</span></div>
+                <button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="openAssignPicker('newCampUserAssign')">👥 Assign</button>
+              </div>
+              <div id="newCampUserAssign" data-assigned="" style="font-size:12px;color:var(--muted);font-style:italic;">No users assigned</div>
+            </div>
+            <div>
+              <button class="primary" onclick="createCampaign()" style="width:100%;">+ Create Campaign</button>
+            </div>
           </div>
         </div>
 
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
-          <div class="builder-area" id="newBuilderArea"></div>
-          <div class="builder-toolbar">
-            <button class="ghost" onclick="builderAddField('newBuilderArea')">+ Add Field</button>
-            <button class="ghost" onclick="builderAddGroup('newBuilderArea')">+ Add Group</button>
+        <div class="config-section">
+          <h2>Campaigns</h2>
+          <div class="campaign-list" id="campaignList">
+            <div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>
           </div>
         </div>
+      </div>
 
-        <div>
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Assign Users <span style="font-style:italic;text-transform:none;letter-spacing:0;">(L0 = read only · L1 = read &amp; write · L2 see all campaigns)</span></div>
-          <div id="newCampUserAssign" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-        </div>
-        <div>
-          <button class="primary" onclick="createCampaign()" style="width:100%;">+ Create Campaign</button>
+      <!-- ══ RIGHT COLUMN: Users & Groups ══ -->
+      <div id="userManagementSection">
+        <div class="config-section">
+          <h2>Users &amp; Groups</h2>
+          <div class="group-panel" id="groupPanel"></div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button class="ghost" onclick="addGroupCard()">+ Add Group</button>
+            <button class="ghost" onclick="addUngroupedUser()">+ Add User</button>
+            <button class="primary" onclick="saveUsers()">💾 Save Users</button>
+            <span id="userUnsavedWarning" style="display:none;font-size:12px;color:var(--pending);font-style:italic;">⚠ Unsaved changes</span>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="config-section" id="userManagementSection">
-      <h2>Users</h2>
-      <div style="display:flex;flex-direction:column;gap:8px;" id="userList"></div>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="ghost" onclick="addUserRow()">+ Add User</button>
-        <button class="primary" onclick="saveUsers()">💾 Save Users</button>
-      </div>
-    </div>
 
-    <div class="config-section">
-      <h2>Campaigns</h2>
-      <div class="campaign-list" id="campaignList">
-        <div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>
-      </div>
     </div>
   </div>
 </div>
@@ -494,8 +550,11 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
       </div>
     </div>
     <div style="padding:0 22px 16px;display:flex;flex-direction:column;gap:8px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);">Assign Users <span style="font-style:italic;text-transform:none;letter-spacing:0;">(L0 = read only · L1 = read &amp; write)</span></div>
-      <div id="editCampUserAssign" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);">Assign Users <span style="font-style:italic;text-transform:none;letter-spacing:0;">(L0 = read only · L1 = read &amp; write)</span></div>
+        <button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="openAssignPicker('editCampUserAssign')">👥 Assign</button>
+      </div>
+      <div id="editCampUserAssign" data-assigned="" style="font-size:12px;color:var(--muted);font-style:italic;">No users assigned</div>
     </div>
     <div class="modal-footer" style="justify-content:flex-end;">
       <button onclick="closeEditModal()">Cancel</button>
@@ -513,6 +572,20 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
     <div style="padding:20px 22px;font-size:14px;color:var(--text);line-height:1.6;" id="alertModalBody"></div>
     <div class="modal-footer" style="justify-content:flex-end;">
       <button class="primary" onclick="closeAlertModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="assignPickerOverlay" onclick="handleAssignOverlayClick(event)">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div><h2>Assign Users</h2></div>
+      <button class="modal-close" onclick="closeAssignPicker()">✕</button>
+    </div>
+    <div style="padding:16px 20px;max-height:60vh;overflow-y:auto;" id="assignPickerBody"></div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button onclick="closeAssignPicker()">Cancel</button>
+      <button class="primary" onclick="confirmAssignPicker()">Confirm</button>
     </div>
   </div>
 </div>
@@ -684,6 +757,7 @@ async function loadCampaign(id) {
     document.getElementById('dropZone').classList.add('disabled');
     document.getElementById('btnRefresh').disabled = true;
     document.getElementById('btnExport').disabled  = true;
+    document.getElementById('btnReset').disabled   = true;
     clearAllFilters();
     resetStats(); resetGraphStats();
     document.getElementById('trackerContent').innerHTML = '<div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>';
@@ -714,6 +788,7 @@ async function loadCampaign(id) {
     }
     document.getElementById('btnRefresh').disabled = false;
     document.getElementById('btnExport').disabled  = false;
+    document.getElementById('btnReset').disabled   = false;
     document.getElementById('graphNoCampaign').style.display = 'none';
     // Re-render graph if it's visible
     if (document.getElementById('pane-graph').style.display !== 'none') renderGraph();
@@ -1387,21 +1462,52 @@ function populateFilters() {
 }
 
 function populateUserFilter() {
-  const sel = document.getElementById('userFilter');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— All —</option>';
+  // Populate group dropdown from userList_ groups present in vehicle records
+  const gSel = document.getElementById('groupFilter');
+  const gCur = gSel ? gSel.value : '';
+  if (gSel) {
+    gSel.innerHTML = '<option value="">— All —</option>';
+    const seenGroups = new Set();
+    vehicles.forEach(v => {
+      const uid = v.engineer_data && v.engineer_data.updated_by_id;
+      if (!uid) return;
+      const u = userList_.find(x => x.id === uid);
+      if (u && u.group && !seenGroups.has(u.group)) {
+        seenGroups.add(u.group);
+        const o = document.createElement('option');
+        o.value = u.group; o.textContent = u.group;
+        gSel.appendChild(o);
+      }
+    });
+    if ([...gSel.options].some(o => o.value === gCur)) gSel.value = gCur;
+  }
+
+  // Populate user dropdown — filtered by selected group if set
+  const activeGroup = gSel ? gSel.value : '';
+  const uSel = document.getElementById('userFilter');
+  const uCur = uSel.value;
+  uSel.innerHTML = '<option value="">— All —</option>';
   const seen = new Set();
   vehicles.forEach(v => {
     const id   = v.engineer_data && v.engineer_data.updated_by_id;
     const name = v.engineer_data && v.engineer_data.updated_by_name;
-    if (id && name && !seen.has(id)) {
-      seen.add(id);
-      const o = document.createElement('option');
-      o.value = id; o.textContent = name;
-      sel.appendChild(o);
-    }
+    if (!id || !name || seen.has(id)) return;
+    const u = userList_.find(x => x.id === id);
+    if (activeGroup && (!u || u.group !== activeGroup)) return;
+    seen.add(id);
+    const o = document.createElement('option');
+    o.value = id; o.textContent = name;
+    uSel.appendChild(o);
   });
-  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  if ([...uSel.options].some(o => o.value === uCur)) uSel.value = uCur;
+  else uSel.value = '';
+}
+
+function onGroupFilterChange() {
+  // Reset user filter when group changes, then re-populate
+  document.getElementById('userFilter').value = '';
+  populateUserFilter();
+  renderGrid();
 }
 
 function populateGraphFilters() {
@@ -1457,12 +1563,18 @@ function getFilteredExcept(except, prefix='') {
   const dep = except==='dep' ? '' : elVal(depId);
   const st  = except==='st'  ? '' : (stId ? elVal(stId) : '');
   const q   = (except==='q' || !qId) ? '' : elVal(qId).trim().toUpperCase();
+  const gf  = except==='gf' ? '' : elVal('groupFilter');
   const uf  = except==='uf' ? '' : elVal('userFilter');
 
   return vehicles.filter(v=>{
     if(op && v.operator!==op) return false;
     if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
     if(st && v.update_status!==st) return false;
+    if(gf) {
+      const _uid = v.engineer_data&&v.engineer_data.updated_by_id;
+      const _u   = _uid && userList_.find(x=>x.id===_uid);
+      if(!(_u&&_u.group===gf)) return false;
+    }
     if(uf && (v.engineer_data&&v.engineer_data.updated_by_id)!==uf) return false;
     if(q  && !matchesSearch(v, q)) return false;
     return true;
@@ -1499,11 +1611,17 @@ function renderGrid() {
   if (vehicles.length===0) { setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file.'); return; }
   const op=document.getElementById('operatorFilter').value, dep=document.getElementById('depotFilter').value;
   const st=document.getElementById('statusFilter').value, q=document.getElementById('searchInput').value.trim().toUpperCase();
-  const ufEl=document.getElementById('userFilter'); const uf=ufEl?ufEl.value:'';
+  const ufEl=document.getElementById('userFilter');  const uf=ufEl?ufEl.value:'';
+  const gfEl=document.getElementById('groupFilter'); const gf=gfEl?gfEl.value:'';
   const filtered=vehicles.filter(v=>{
     if(op&&v.operator!==op) return false;
     if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
     if(st&&v.update_status!==st) return false;
+    if(gf){
+      const uid = v.engineer_data&&v.engineer_data.updated_by_id;
+      const u   = uid && userList_.find(x=>x.id===uid);
+      if(!(u&&u.group===gf)) return false;
+    }
     if(uf&&(v.engineer_data&&v.engineer_data.updated_by_id)!==uf) return false;
     if(q&&!matchesSearch(v,q)) return false;
     return true;
@@ -1721,13 +1839,63 @@ async function saveEntry() {
   } else if (dataChanged && currentUser) {
     // Only update user if data was actually changed
     ed.updated_by_id   = currentUser.id;
-    ed.updated_by_name = currentUser.name;
+    ed.updated_by_name = displayName(currentUser);
   }
   _originalEngData = null;
   closeEntryModal(); renderGrid();
   showToast('Saving…','info');
   await syncCampaignData(true);
   showToast(`Saved — ${v.body_number} → ${v.update_status}`,'success');
+}
+
+// ══ CAMPAIGN RESET ══
+async function resetCampaign() {
+  if (!activeCampaign) return;
+
+  showConfirmModal(
+    'Reset Campaign',
+    `This will back up the current data and reset all vehicles in "${activeCampaign.name}" to Pending. This cannot be undone without the backup. Continue?`,
+    async () => {
+      showToast('Backing up campaign data…', 'info');
+      try {
+        // 1. Load current data from Supabase (authoritative copy)
+        const currentData = await sbGet(activeCampaign.fileName);
+        if (!currentData) { showToast('No data to back up', 'error'); return; }
+
+        // 2. Save backup with timestamped filename
+        const now = new Date();
+        const ts  = now.getFullYear() + '-'
+          + String(now.getMonth()+1).padStart(2,'0') + '-'
+          + String(now.getDate()).padStart(2,'0') + '_'
+          + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
+        const safeName   = activeCampaign.name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+        const backupName = `${safeName}_Backup_${ts}.json`;
+        await sbPut(backupName, currentData);
+        showToast(`Backup saved as ${backupName}`, 'info');
+
+        // 3. Reset all vehicles to Pending, clear engineer data
+        const resetVehicles = (Array.isArray(currentData) ? currentData : []).map(v => ({
+          ...v,
+          update_status: 'Pending',
+          engineer_data: buildEmptyEngineerData(activeCampaign.schema || []),
+        }));
+
+        // 4. Save reset data back to Supabase
+        await sbPut(activeCampaign.fileName, resetVehicles);
+
+        // 5. Update local state
+        vehicles      = resetVehicles;
+        graphVehicles = resetVehicles;
+        populateFilters();
+        populateGraphFilters();
+        clearAllFilters();
+        renderGrid();
+        showToast(`"${activeCampaign.name}" has been reset. Backup: ${backupName}`, 'success');
+      } catch(e) {
+        showToast('Reset failed: ' + e.message, 'error');
+      }
+    }
+  );
 }
 
 // ══ CSV EXPORT ══
@@ -1813,7 +1981,7 @@ function resetStats() {
 }
 
 function clearAllFilters() {
-  ['operatorFilter','depotFilter','statusFilter','userFilter','searchInput',
+  ['operatorFilter','depotFilter','statusFilter','groupFilter','userFilter','searchInput',
    'graphOperatorFilter','graphDepotFilter'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -1859,6 +2027,16 @@ let _activeStatuses  = new Set(['In Progress', 'Complete']); // statuses shown p
 
 // Palette for per-user lines
 const USER_COLOURS = ['#58a6ff','#f0883e','#bc8cff','#3fb950','#d29922','#ff7b72','#79c0ff','#56d364'];
+
+function displayName(u) {
+  if (!u) return '';
+  return u.group ? u.group + ' — ' + u.name : u.name;
+}
+
+function displayNameById(userId) {
+  const u = userList_.find(x => x.id === userId);
+  return u ? displayName(u) : userId || '';
+}
 const _userColourMap = {};  // {userId: colour} — assigned once per session, never changes
 
 function assignUserColours() {
@@ -2219,7 +2397,7 @@ async function tryPin() {
     currentUser = match;
     document.getElementById('pinScreen').style.display = 'none';
     document.getElementById('userBadge').style.display = 'flex';
-    document.getElementById('userBadgeName').textContent = match.name + ' (L' + match.level + (match.level===0?' — Read Only':'') + ')';
+    document.getElementById('userBadgeName').textContent = displayName(match) + ' (L' + match.level + (match.level===0?' — Read Only':'') + ')';
     applyAccessLevel();
     await init();
   } else {
@@ -2250,15 +2428,22 @@ function applyAccessLevel() {
   // Config tab visible to L2 only
   document.getElementById('tab-config').style.display = isL2 ? '' : 'none';
   if (!isL2 && document.getElementById('pane-config').style.display !== 'none') switchTab('tracker');
-  // User filter visible to L2 only
+  // Group and User filters visible to L2 only
+  const gfi = document.getElementById('groupFilterItem');
+  if (gfi) gfi.style.display = isL2 ? '' : 'none';
   const ufi = document.getElementById('userFilterItem');
   if (ufi) ufi.style.display = isL2 ? '' : 'none';
   // Graph toggle panel visible to L2 only
   const gtp = document.getElementById('graphTogglePanel');
   if (gtp) gtp.style.display = isL2 ? 'flex' : 'none';
-  // Export button visible to L2 only
+  // Export and Reset buttons visible to L2 only
   const btnExp = document.getElementById('btnExport');
   if (btnExp) btnExp.style.display = isL2 ? '' : 'none';
+  const btnRst = document.getElementById('btnReset');
+  if (btnRst) btnRst.style.display = isL2 ? '' : 'none';
+  // Fleet drop zone visible to L2 only
+  const dz = document.getElementById('dropZone');
+  if (dz) dz.style.display = isL2 ? '' : 'none';
 }
 
 function isReadOnly() {
@@ -2275,29 +2460,229 @@ async function loadUserList() {
 }
 
 async function saveUsers() {
-  // Read from UI
-  const rows = document.querySelectorAll('#userList .user-row');
   const users = [];
-  rows.forEach(row => {
-    const name  = row.querySelector('.u-name').value.trim();
-    const pin   = row.querySelector('.u-pin').value.trim();
-    const level = parseInt(row.querySelector('.u-level').value);
-    const id    = row.dataset.uid || 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-    if (name && pin) users.push({ id, name, pin, level });
+
+  // Read from group panel chips — each chip has name, PIN, level
+  // Named groups first
+  document.querySelectorAll('#groupPanel .group-card').forEach(card => {
+    const groupName = card.querySelector('.group-name-input')?.value.trim() || null;
+    card.querySelectorAll('.user-chip').forEach(chip => {
+      const name  = chip.querySelector('.u-name')?.value.trim();
+      const pin   = chip.querySelector('.u-pin')?.value.trim();
+      const level = parseInt(chip.querySelector('.u-level')?.value ?? '1');
+      const id    = chip.dataset.uid || 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+      if (name && pin) users.push({ id, name, pin, level, group: groupName });
+    });
   });
+  // Ungrouped
+  document.querySelectorAll('#groupPanel .ungrouped-card .user-chip').forEach(chip => {
+    const name  = chip.querySelector('.u-name')?.value.trim();
+    const pin   = chip.querySelector('.u-pin')?.value.trim();
+    const level = parseInt(chip.querySelector('.u-level')?.value ?? '1');
+    const id    = chip.dataset.uid || 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    if (name && pin) users.push({ id, name, pin, level, group: null });
+  });
+
+  if (users.length === 0) { showToast('No users to save — add at least one user', 'error'); return; }
+
   try {
     await sbPut(USERS_FILE, users);
     userList_ = users;
     assignUserColours();
+    renderGroupPanel();
     renderUserAssignPickers();
+    clearUsersDirty();
     showToast('Users saved', 'success');
   } catch(e) { showToast('Save failed: ' + e.message, 'error'); }
 }
 
 function renderUserManagement() {
-  const el = document.getElementById('userList');
-  el.innerHTML = '';
-  userList_.forEach(u => addUserRow(u));
+  // No separate user list — just render group panel
+  renderGroupPanel();
+}
+
+function addUngroupedUser() {
+  const dz = document.querySelector('#groupPanel .ungrouped-card .group-drop-zone');
+  if (!dz) return;
+  const u = { id: 'u_' + Date.now(), name: '', pin: '', level: 1, group: null };
+  dz.appendChild(makeUserChip(u));
+  markUsersDirty();
+}
+
+// ── GROUP PANEL ──
+let _chipDrag = null;
+
+function renderGroupPanel() {
+  const panel = document.getElementById('groupPanel');
+  if (!panel) return;
+  panel.innerHTML = '';
+
+  // Collect unique groups
+  const groups = [...new Set(userList_.filter(u=>u.group).map(u=>u.group))].sort();
+  const ungrouped = userList_.filter(u => !u.group);
+
+  groups.forEach(groupName => {
+    const members = userList_.filter(u => u.group === groupName);
+    panel.appendChild(makeGroupCard(groupName, members));
+  });
+
+  // Ungrouped / Other Users area
+  const ungroupedCard = document.createElement('div');
+  ungroupedCard.className = 'ungrouped-card';
+  ungroupedCard.innerHTML = '<div class="ungrouped-label">Other Users (no group)</div>';
+  const dz = document.createElement('div');
+  dz.className = 'group-drop-zone';
+  dz.dataset.group = '';
+  ungrouped.forEach(u => dz.appendChild(makeUserChip(u)));
+  setupDropZone(dz);
+  ungroupedCard.appendChild(dz);
+  panel.appendChild(ungroupedCard);
+}
+
+function makeGroupCard(groupName, members) {
+  const card = document.createElement('div');
+  card.className = 'group-card';
+
+  const header = document.createElement('div');
+  header.className = 'group-card-header';
+  header.innerHTML = `
+    <span class="drag-handle" style="color:var(--muted);cursor:grab;font-size:16px;">⠿</span>
+    <div class="group-card-title"><input class="group-name-input" type="text" value="${esc(groupName)}" placeholder="Group name"></div>
+    <button class="ghost" style="font-size:12px;padding:4px 8px;" onclick="addNewUserToGroup(this)">+ User</button>
+    <button class="remove-btn" onclick="removeGroupCard(this)" title="Dissolve group">✕</button>
+  `;
+
+  const dz = document.createElement('div');
+  dz.className = 'group-drop-zone';
+  dz.dataset.group = groupName;
+  members.forEach(u => dz.appendChild(makeUserChip(u)));
+  setupDropZone(dz);
+
+  card.appendChild(header);
+  card.appendChild(dz);
+  return card;
+}
+
+function markUsersDirty() {
+  const w = document.getElementById('userUnsavedWarning');
+  if (w) w.style.display = '';
+}
+
+function clearUsersDirty() {
+  const w = document.getElementById('userUnsavedWarning');
+  if (w) w.style.display = 'none';
+}
+
+function addGroupCard() {
+  const panel = document.getElementById('groupPanel');
+  const ungroupedCard = panel.querySelector('.ungrouped-card');
+  const card = makeGroupCard('', []);
+  panel.insertBefore(card, ungroupedCard);
+  card.querySelector('.group-name-input').focus();
+  markUsersDirty();
+}
+
+function removeGroupCard(btn) {
+  const card = btn.closest('.group-card');
+  // Move all chips to ungrouped
+  const chips = card.querySelectorAll('.user-chip');
+  const ungroupedDz = document.querySelector('#groupPanel .ungrouped-card .group-drop-zone');
+  chips.forEach(c => ungroupedDz && ungroupedDz.appendChild(c));
+  card.remove();
+  markUsersDirty();
+}
+
+function addNewUserToGroup(btn) {
+  const dz = btn.closest('.group-card').querySelector('.group-drop-zone');
+  const u  = { id: 'u_' + Date.now(), name: '', pin: '', level: 1, group: null };
+  dz.appendChild(makeUserChip(u));
+  markUsersDirty();
+}
+
+function makeUserChip(u) {
+  const chip = document.createElement('div');
+  chip.className = 'user-chip';
+  chip.dataset.uid = u.id;
+  chip.style.cssText = 'display:grid;grid-template-columns:28px 1fr 72px 52px 24px;gap:6px;align-items:center;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;user-select:none;';
+
+  // Drag handle
+  const handle = document.createElement('span');
+  handle.textContent = '⠿';
+  handle.style.cssText = 'color:var(--muted);cursor:grab;font-size:16px;text-align:center;';
+  handle.draggable = true;
+
+  // Name input
+  const nameIn = document.createElement('input');
+  nameIn.type = 'text'; nameIn.className = 'u-name';
+  nameIn.value = u.name || ''; nameIn.placeholder = 'Name';
+  nameIn.style.cssText = 'font-size:13px;width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);padding:2px 0;';
+  nameIn.addEventListener('focus', () => nameIn.style.borderBottomColor = 'var(--accent)');
+  nameIn.addEventListener('blur',  () => nameIn.style.borderBottomColor = 'var(--border)');
+  nameIn.addEventListener('input', markUsersDirty);
+
+  // PIN input
+  const pinIn = document.createElement('input');
+  pinIn.type = 'text'; pinIn.className = 'u-pin';
+  pinIn.value = u.pin || ''; pinIn.placeholder = 'PIN'; pinIn.maxLength = 4;
+  pinIn.style.cssText = "font-size:12px;width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);padding:2px 0;font-family:'Share Tech Mono',monospace;letter-spacing:2px;";
+  pinIn.addEventListener('focus', () => pinIn.style.borderBottomColor = 'var(--accent)');
+  pinIn.addEventListener('blur',  () => pinIn.style.borderBottomColor = 'var(--border)');
+  pinIn.addEventListener('input', markUsersDirty);
+
+  // Level select
+  const levelSel = document.createElement('select');
+  levelSel.className = 'u-level';
+  levelSel.style.cssText = 'font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:2px 4px;width:100%;';
+  [[0,'L0'],[1,'L1'],[2,'L2']].forEach(([v,l]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = l;
+    if (u.level === v) o.selected = true;
+    levelSel.appendChild(o);
+  });
+
+  // Delete button
+  const del = document.createElement('button');
+  del.className = 'remove-btn'; del.textContent = '✕'; del.title = 'Remove user';
+  del.addEventListener('click', () => chip.remove());
+
+  chip.appendChild(handle);
+  chip.appendChild(nameIn);
+  chip.appendChild(pinIn);
+  chip.appendChild(levelSel);
+  levelSel.addEventListener('change', markUsersDirty);
+  del.addEventListener('click', markUsersDirty);
+  chip.appendChild(del);
+
+  // Drag events on handle
+  handle.addEventListener('dragstart', e => {
+    _chipDrag = chip;
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => chip.classList.add('dragging'), 0);
+  });
+  handle.addEventListener('dragend', () => {
+    chip.classList.remove('dragging');
+    document.querySelectorAll('.group-drop-zone.drag-over').forEach(el => el.classList.remove('drag-over'));
+    _chipDrag = null;
+  });
+  return chip;
+}
+
+function setupDropZone(dz) {
+  dz.addEventListener('dragover', e => {
+    if (!_chipDrag) return;
+    e.preventDefault();
+    dz.classList.add('drag-over');
+  });
+  dz.addEventListener('dragleave', e => {
+    if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag-over');
+  });
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    if (!_chipDrag) return;
+    dz.appendChild(_chipDrag);
+    markUsersDirty();
+  });
 }
 
 function addUserRow(u) {
@@ -2319,65 +2704,204 @@ function addUserRow(u) {
 }
 
 // ══ USER ASSIGNMENT PICKERS ══
+let _assignTargetId = null;   // which container div to update on confirm
+let _assignSelected = new Set(); // current selection in picker
+
 function renderUserAssignPickers() {
-  renderAssignPicker('newCampUserAssign', []);
-  // Edit modal picker will be refreshed when edit opens
+  // Just update summary labels — picker is modal-based now
+  updateAssignSummary('newCampUserAssign');
+  updateAssignSummary('editCampUserAssign');
+}
+
+function updateAssignSummary(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const ids = (el.dataset.assigned || '').split(',').filter(Boolean);
+  if (ids.length === 0) {
+    el.innerHTML = '<span style="font-style:italic;color:var(--muted);">No users assigned</span>';
+    return;
+  }
+
+  const users = ids.map(id => userList_.find(u => u.id === id)).filter(Boolean);
+  const l1 = users.filter(u => u.level === 1);
+  const l0 = users.filter(u => u.level === 0);
+
+  function makeSection(label, color, members) {
+    if (!members.length) return '';
+    const names = members.map(u => `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:11px;white-space:nowrap;">${esc(displayName(u))} <span style="color:${color};font-family:'Share Tech Mono',monospace;font-size:10px;">${u.level===1?'L1':'L0'}</span></span>`).join(' ');
+    return `<div style="margin-bottom:4px;"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:${color};font-weight:600;">${label}</span><br><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${names}</div></div>`;
+  }
+
+  el.innerHTML = makeSection('L1 — Read & Write', 'var(--complete)', l1)
+               + makeSection('L0 — Read Only',    'var(--progress)', l0);
 }
 
 function renderAssignPicker(containerId, assignedIds) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  el.innerHTML = '';
-  const assignable = userList_.filter(u => u.level === 0 || u.level === 1);
-  if (assignable.length === 0) {
-    el.innerHTML = '<span style="font-size:12px;color:var(--muted);">No Level 0 or Level 1 users defined yet.</span>';
-    return;
-  }
-
-  function makeChip(u) {
-    const checked = assignedIds.includes(u.id);
-    const chip = document.createElement('label');
-    chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:16px;cursor:pointer;font-size:12px;user-select:none;transition:border-color .15s;';
-    chip.innerHTML = `<input type="checkbox" value="${u.id}" ${checked?'checked':''} style="accent-color:var(--accent);"> ${esc(u.name)}`;
-    chip.querySelector('input').addEventListener('change', () => {
-      chip.style.borderColor = chip.querySelector('input').checked ? 'var(--accent)' : 'var(--border)';
-    });
-    if (checked) chip.style.borderColor = 'var(--accent)';
-    return chip;
-  }
-
-  function makeGroupHeading(label) {
-    const h = document.createElement('div');
-    h.style.cssText = 'width:100%;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:6px;margin-bottom:2px;';
-    h.textContent = label;
-    return h;
-  }
-
-  // Group by level
-  const l0 = assignable.filter(u => u.level === 0);
-  const l1 = assignable.filter(u => u.level === 1);
-
-  // Wrap in a flex container that wraps chips
-  el.style.flexDirection = 'column';
-
-  if (l0.length > 0) {
-    el.appendChild(makeGroupHeading('Level 0 — Read Only'));
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
-    l0.forEach(u => row.appendChild(makeChip(u)));
-    el.appendChild(row);
-  }
-  if (l1.length > 0) {
-    el.appendChild(makeGroupHeading('Level 1 — Read & Write'));
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
-    l1.forEach(u => row.appendChild(makeChip(u)));
-    el.appendChild(row);
-  }
+  el.dataset.assigned = assignedIds.join(',');
+  updateAssignSummary(containerId);
 }
 
 function getAssignedIds(containerId) {
-  return [...document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)].map(cb => cb.value);
+  const el = document.getElementById(containerId);
+  if (!el) return [];
+  return (el.dataset.assigned || '').split(',').filter(Boolean);
+}
+
+function openAssignPicker(containerId) {
+  _assignTargetId = containerId;
+  const currentIds = getAssignedIds(containerId);
+  _assignSelected  = new Set(currentIds);
+  buildAssignPickerBody();
+  document.getElementById('assignPickerOverlay').classList.add('open');
+}
+
+function buildAssignPickerBody() {
+  const body = document.getElementById('assignPickerBody');
+  body.innerHTML = '';
+  const assignable = userList_.filter(u => u.level === 0 || u.level === 1);
+  if (assignable.length === 0) {
+    body.innerHTML = '<div style="color:var(--muted);font-size:13px;">No L0 or L1 users defined yet.</div>';
+    return;
+  }
+
+  // Build group map
+  const groupMap = {};
+  assignable.forEach(u => {
+    const g = u.group || '__other__';
+    if (!groupMap[g]) groupMap[g] = [];
+    groupMap[g].push(u);
+  });
+  const groupKeys = Object.keys(groupMap).filter(k => k !== '__other__').sort();
+  if (groupMap['__other__']) groupKeys.push('__other__');
+
+  // Level heading helper
+  function makeLevelSection(levelLabel, color, members) {
+    if (!members.length) return null;
+    const wrap = document.createElement('div');
+    // Level sub-heading
+    const hd = document.createElement('div');
+    hd.style.cssText = `font-size:10px;text-transform:uppercase;letter-spacing:1px;color:${color};padding:4px 0 2px;font-weight:600;`;
+    hd.textContent = levelLabel;
+    wrap.appendChild(hd);
+    members.forEach(u => {
+      const row = document.createElement('div');
+      row.className = 'assign-member';
+      const isChecked = _assignSelected.has(u.id);
+      const lvlCol = u.level === 1 ? 'var(--complete)' : 'var(--progress)';
+      const lvlLbl = u.level === 1 ? 'L1' : 'L0';
+      row.innerHTML = `
+        <input type="checkbox" ${isChecked?'checked':''} data-uid="${u.id}" onchange="toggleMemberSelect('${u.id}',this.checked,'${esc(u.group||'__other__')}')">
+        <span class="assign-member-name">${esc(displayName(u))} <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:${lvlCol};">${lvlLbl}</span></span>
+        <button class="remove-btn" style="margin-left:auto;" onclick="event.stopPropagation();removeMemberFromCampaign('${u.id}')" title="Remove from campaign">✕</button>
+      `;
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  groupKeys.forEach(groupKey => {
+    const members = groupMap[groupKey];
+    const isOther = groupKey === '__other__';
+    const label   = isOther ? 'Other Users' : groupKey;
+
+    const l0 = members.filter(u => u.level === 0);
+    const l1 = members.filter(u => u.level === 1);
+    const allSelected = !isOther && members.every(u => _assignSelected.has(u.id));
+
+    const block = document.createElement('div');
+    block.className = 'assign-group';
+
+    const header = document.createElement('div');
+    header.className = 'assign-group-header';
+    header.innerHTML = `
+      <span class="assign-group-chevron" id="chev_${esc(groupKey)}">▶</span>
+      ${!isOther ? `<input type="checkbox" class="assign-group-check" ${allSelected?'checked':''} data-group="${esc(groupKey)}" onclick="event.stopPropagation();toggleGroupSelect('${esc(groupKey)}',this.checked)">` : ''}
+      <span class="assign-group-title">${esc(label)}</span>
+      <span style="font-size:11px;color:var(--muted);">${members.length} user${members.length!==1?'s':''}</span>
+      ${!isOther ? `<button class="remove-btn" onclick="event.stopPropagation();removeGroupFromCampaign('${esc(groupKey)}')" title="Remove group from campaign">✕</button>` : ''}
+    `;
+    header.addEventListener('click', e => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') toggleGroupExpand(groupKey); });
+
+    const membersEl = document.createElement('div');
+    membersEl.className = 'assign-group-members';
+    membersEl.id = `grpmembers_${groupKey.replace(/[^a-z0-9]/gi,'_')}`;
+
+    const l1Section = makeLevelSection('Level 1 — Read & Write', 'var(--complete)', l1);
+    const l0Section = makeLevelSection('Level 0 — Read Only',    'var(--progress)', l0);
+    if (l1Section) membersEl.appendChild(l1Section);
+    if (l0Section) membersEl.appendChild(l0Section);
+
+    block.appendChild(header);
+    block.appendChild(membersEl);
+    body.appendChild(block);
+  });
+}
+
+function removeMemberFromCampaign(uid) {
+  _assignSelected.delete(uid);
+  buildAssignPickerBody();
+  // Re-open any groups that were open
+  document.querySelectorAll('.assign-group-members').forEach(el => {
+    if (!el.classList.contains('open')) el.classList.add('open');
+  });
+}
+
+function removeGroupFromCampaign(groupKey) {
+  const members = userList_.filter(u => (u.group || '__other__') === groupKey);
+  members.forEach(u => _assignSelected.delete(u.id));
+  buildAssignPickerBody();
+}
+
+function toggleGroupExpand(groupKey) {
+  const safeKey = groupKey.replace(/[^a-z0-9]/gi,'_');
+  const membersEl = document.getElementById('grpmembers_' + safeKey);
+  const chevron   = document.getElementById('chev_' + groupKey);
+  if (!membersEl) return;
+  const isOpen = membersEl.classList.toggle('open');
+  if (chevron) chevron.classList.toggle('open', isOpen);
+}
+
+function toggleGroupSelect(groupKey, checked) {
+  const assignable = userList_.filter(u => (u.group || '__other__') === groupKey);
+  assignable.forEach(u => {
+    if (checked) _assignSelected.add(u.id);
+    else _assignSelected.delete(u.id);
+  });
+  buildAssignPickerBody();
+  // Re-expand the group that was interacted with
+  const safeKey = groupKey.replace(/[^a-z0-9]/gi,'_');
+  const membersEl = document.getElementById('grpmembers_' + safeKey);
+  if (membersEl) { membersEl.classList.add('open'); document.getElementById('chev_' + groupKey)?.classList.add('open'); }
+}
+
+function toggleMemberSelect(uid, checked, groupKey) {
+  if (checked) _assignSelected.add(uid);
+  else _assignSelected.delete(uid);
+  // Update group checkbox state
+  const grpMembers = userList_.filter(u => (u.group || '__other__') === groupKey && (u.level === 0 || u.level === 1));
+  const grpChk = document.querySelector(`.assign-group-check[data-group="${groupKey}"]`);
+  if (grpChk) grpChk.checked = grpMembers.every(u => _assignSelected.has(u.id));
+}
+
+function confirmAssignPicker() {
+  if (!_assignTargetId) return;
+  const el = document.getElementById(_assignTargetId);
+  if (el) {
+    el.dataset.assigned = [..._assignSelected].join(',');
+    updateAssignSummary(_assignTargetId);
+  }
+  closeAssignPicker();
+}
+
+function closeAssignPicker() {
+  document.getElementById('assignPickerOverlay').classList.remove('open');
+  _assignTargetId = null;
+}
+
+function handleAssignOverlayClick(e) {
+  if (e.target === document.getElementById('assignPickerOverlay')) closeAssignPicker();
 }
 
 // ══ FILTER CAMPAIGNS BY USER ══
