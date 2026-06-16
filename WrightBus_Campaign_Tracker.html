@@ -279,7 +279,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v3.1.6</div>
+  <div class="version-badge">v3.1.7</div>
   <div class="spacer"></div>
   <div class="user-badge" id="userBadge" style="display:none;">
     <strong id="userBadgeName"></strong>
@@ -1983,7 +1983,7 @@ function renderGraphPerUser(canvas, filtered, labels) {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: true, aspectRatio: 3.4,
+      responsive: true, maintainAspectRatio: true, aspectRatio: window.innerWidth < 600 ? 1.6 : 3.4,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { labels: { color: '#e6edf3', font: { family: 'Inter', size: 12 }, boxWidth: 14 } },
@@ -2145,7 +2145,7 @@ function renderGraph() {
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      aspectRatio: 3.4,
+      aspectRatio: window.innerWidth < 600 ? 1.6 : 3.4,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
