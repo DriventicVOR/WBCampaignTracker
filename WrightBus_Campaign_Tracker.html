@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WrightBus Campaign Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --accent:#58a6ff; --accent2:#1f6feb; --text:#e6edf3; --muted:#7d8590;
+  --pending:#f85149; --progress:#d29922; --complete:#3fb950;
+  --pending-bg:rgba(248,81,73,0.15); --progress-bg:rgba(210,153,34,0.15); --complete-bg:rgba(63,185,80,0.15);
+  --modal-bg:rgba(0,0,0,0.75);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
+.logo{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--accent);letter-spacing:1px;white-space:nowrap;}
+.logo span{color:var(--muted);font-weight:400;}
+.version-badge{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;}
+.spacer{flex:1;}
+
+/* TABS */
+.tab-bar{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;flex-shrink:0;}
+.tab{padding:10px 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;user-select:none;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* CONTROLS */
+select,button,input[type="text"],textarea{font-family:'Inter',sans-serif;font-size:13px;}
+button,select{padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;transition:border-color .2s,background .2s;}
+button:hover,select:hover{border-color:var(--accent);background:var(--surface);}
+select:focus{outline:none;border-color:var(--accent);}
+button.primary{background:var(--accent2);border-color:var(--accent);color:#fff;font-weight:500;}
+button.primary:hover{background:var(--accent);}
+button.danger{background:var(--pending-bg);border-color:rgba(248,81,73,0.4);color:var(--pending);}
+button.danger:hover{background:rgba(248,81,73,0.25);}
+button.ghost{background:none;border-color:var(--border);color:var(--muted);}
+button.ghost:hover{border-color:var(--accent);color:var(--text);}
+button:disabled{opacity:.4;cursor:not-allowed;}
+input[type="text"],textarea{padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);transition:border-color .2s;}
+input[type="text"]:focus,textarea:focus{outline:none;border-color:var(--accent);}
+input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
+
+/* TRACKER */
+.tracker-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.campaign-select-wrap{display:flex;align-items:center;gap:8px;}
+.campaign-select-wrap label{font-size:13px;color:var(--muted);white-space:nowrap;}
+.campaign-select-wrap select{min-width:260px;}
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:8px 16px;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.drop-zone.drag-over,.drop-zone:hover{border-color:var(--accent);color:var(--accent);}
+.drop-zone.disabled{opacity:.35;pointer-events:none;}
+.stats-bar{display:flex;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;gap:20px;align-items:center;}
+.stat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+.stat .dot{width:10px;height:10px;border-radius:50%;}
+.stat .dot.pending{background:var(--pending);}
+.stat .dot.progress{background:var(--progress);}
+.stat .dot.complete{background:var(--complete);}
+.stat strong{color:var(--text);font-size:15px;font-family:'Share Tech Mono';}
+.filter-bar{padding:10px 24px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.filter-item{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.filter-item label{font-size:13px;color:var(--muted);white-space:nowrap;}
+.filter-item select{width:160px;min-width:0;}
+.filter-item input{width:150px;}
+.search-input{font-family:'Share Tech Mono',monospace;font-size:13px;}
+@media(max-width:600px){
+  .filter-bar{padding:8px 12px;gap:6px;}
+  .filter-item{flex:1 1 100%;display:grid;grid-template-columns:80px 1fr;align-items:center;}
+  .filter-item label{width:80px;white-space:nowrap;}
+  .filter-item select,.filter-item input{flex:1;min-width:0;width:100%;}
+  .tracker-toolbar{padding:8px 12px;gap:6px;flex-wrap:wrap;}
+  .campaign-select-wrap{flex:1 1 100%;display:grid;grid-template-columns:80px 1fr;align-items:center;}
+  .campaign-select-wrap label{width:80px;white-space:nowrap;}
+  .campaign-select-wrap select{min-width:0;width:100%;}
+}
+.grid-wrap{padding:20px 24px;overflow-y:auto;flex:1;}
+.grid-section{margin-bottom:28px;}
+.grid-section h3{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+.vehicle-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.vehicle-card{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:600;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:transform .1s,box-shadow .15s,border-color .15s;min-width:72px;width:80px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;letter-spacing:.5px;user-select:none;line-height:1.3;}
+.vehicle-card .card-date{display:block;font-size:10px;font-weight:400;opacity:0.8;letter-spacing:0;margin-top:2px;}
+.vehicle-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.4);border-color:rgba(255,255,255,.2);}
+.vehicle-card.status-Pending{background:var(--pending-bg);color:var(--pending);border-color:rgba(248,81,73,.3);}
+.vehicle-card.status-In-Progress{background:var(--progress-bg);color:var(--progress);border-color:rgba(210,153,34,.3);}
+.vehicle-card.status-Complete{background:var(--complete-bg);color:var(--complete);border-color:rgba(63,185,80,.3);}
+
+/* CONFIG */
+.config-wrap{padding:28px 24px;max-width:900px;}
+.config-section{margin-bottom:36px;}
+.config-section h2{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.new-campaign-form{display:flex;flex-direction:column;gap:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:20px;}
+.form-row-inline{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.field-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px;}
+.field-group label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+.field-group input[type="text"]{width:100%;}
+
+/* FIELD BUILDER */
+.builder-area{display:flex;flex-direction:column;gap:6px;}
+
+/* Group block */
+.group-block{background:var(--bg);border:1px solid var(--accent2);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+.group-block-header{display:flex;align-items:center;gap:8px;}
+.group-title-input{flex:1;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;background:transparent;border:none;border-bottom:1px solid var(--border);border-radius:0;color:var(--accent);padding:4px 2px;letter-spacing:.5px;}
+.group-title-input:focus{outline:none;border-bottom-color:var(--accent);}
+.group-title-input::placeholder{color:var(--muted);font-style:italic;}
+.group-fields{display:flex;flex-direction:column;gap:5px;padding-left:4px;min-height:32px;border-radius:4px;transition:outline .15s;}
+.group-add-btn{font-size:12px;padding:4px 10px;align-self:flex-start;margin-top:2px;}
+
+/* Field row */
+.field-row{display:grid;grid-template-columns:24px 1fr 130px 130px 28px;gap:6px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;}
+.field-row input[type="text"]{width:100%;font-size:13px;}
+.field-row select{font-size:13px;}
+.drag-handle{color:var(--muted);cursor:grab;font-size:16px;text-align:center;user-select:none;line-height:1;}
+.remove-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1;text-align:center;}
+.remove-btn:hover{color:var(--pending);}
+.opts-input{font-size:12px;font-style:italic;color:var(--muted);}
+
+/* Standalone fields area */
+.standalone-fields{display:flex;flex-direction:column;gap:5px;}
+
+/* Drag state */
+.field-row.dragging,.group-block.dragging{opacity:.4;}
+.drop-indicator{height:3px;background:var(--accent);border-radius:2px;margin:2px 0;pointer-events:none;}
+.group-fields.drag-over-empty{outline:2px dashed var(--accent);outline-offset:2px;border-radius:4px;min-height:32px;}
+
+/* Builder toolbar */
+.builder-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+
+/* Campaign list */
+.campaign-list{display:flex;flex-direction:column;gap:8px;}
+.campaign-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;transition:border-color .2s;cursor:pointer;}
+.campaign-item:hover{border-color:var(--accent);}
+.campaign-item-header{display:flex;align-items:center;gap:12px;}
+.camp-name{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;color:var(--text);flex:1;}
+.camp-file{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+.camp-preview{font-size:11px;color:var(--muted);margin-top:4px;}
+.camp-status-badge{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer;transition:opacity .15s;white-space:nowrap;}
+.camp-status-badge:hover{opacity:.75;}
+.camp-status-badge.open{background:var(--complete-bg);color:var(--complete);border:1px solid rgba(63,185,80,.4);}
+.camp-status-badge.closed{background:var(--pending-bg);color:var(--pending);border:1px solid rgba(248,81,73,.4);}
+
+/* ENTRY MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:var(--modal-bg);z-index:100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:slideUp .2s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.modal-header h2{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--accent);letter-spacing:1px;}
+.modal-header .body-meta{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1;}
+.modal-close:hover{color:var(--text);}
+.vehicle-info{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;padding:14px 22px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.info-item .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;}
+.info-item .val{color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;margin-top:1px;}
+.form-body{padding:18px 22px;display:flex;flex-direction:column;gap:10px;}
+
+/* Grouped section in entry form */
+.eng-group{border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--surface2);}
+.eng-group-title{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px;}
+.eng-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:5px;}
+.eng-field input[type="text"],.eng-field select,.eng-field textarea{width:100%;}
+.eng-field textarea{resize:vertical;min-height:68px;}
+
+/* Toggle */
+.toggle-field{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-radius:5px;cursor:pointer;transition:opacity .15s,transform .1s;user-select:none;background:var(--pending-bg);border:1px solid rgba(248,81,73,.4);}
+.toggle-field:hover{opacity:.85;transform:translateY(-1px);}
+.toggle-field.on{background:var(--complete-bg);border-color:rgba(63,185,80,.4);}
+.toggle-field .tl{font-size:12px;font-weight:500;color:var(--text);}
+.toggle-field .ts{font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:700;color:var(--pending);}
+.toggle-field.on .ts{color:var(--complete);}
+
+.status-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:'Share Tech Mono',monospace;letter-spacing:.5px;}
+.status-badge.Pending{background:var(--pending-bg);color:var(--pending);}
+.status-badge.In-Progress{background:var(--progress-bg);color:var(--progress);}
+.status-badge.Complete{background:var(--complete-bg);color:var(--complete);}
+
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.modal-footer .status-wrap{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+
+/* EDIT CAMPAIGN MODAL */
+.edit-modal{max-width:780px;}
+
+/* STATES */
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;gap:16px;color:var(--muted);font-size:14px;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty-state{padding:60px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:2.2;}
+.empty-state strong{color:var(--text);display:block;font-size:17px;margin-bottom:8px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:999;transform:translateY(80px);opacity:0;transition:transform .3s,opacity .3s;max-width:340px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left:3px solid var(--complete);}
+.toast.error{border-left:3px solid var(--pending);}
+.toast.info{border-left:3px solid var(--accent);}
+
+.driveline-check-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.dl-check-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:border-color .15s;}
+.dl-check-item:hover{border-color:var(--accent);}
+.dl-check-item input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
+.dl-check-item label{font-size:13px;color:var(--text);cursor:pointer;flex:1;}
+.dl-count{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);}
+.new-fleet-drop{border:2px dashed var(--border);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.new-fleet-drop:hover,.new-fleet-drop.drag-over{border-color:var(--accent);color:var(--accent);}
+
+/* PIN SCREEN */
+.pin-screen{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;}
+.pin-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px 36px;width:min(90vw,360px);display:flex;flex-direction:column;align-items:center;gap:20px;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.pin-logo{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--accent);letter-spacing:1px;text-align:center;}
+.pin-logo span{color:var(--muted);font-weight:400;}
+.pin-subtitle{font-size:13px;color:var(--muted);text-align:center;}
+.pin-dots{display:flex;gap:12px;margin:8px 0;}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:background .15s,border-color .15s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;}
+.pin-key{font-family:'Share Tech Mono',monospace;font-size:20px;font-weight:600;padding:16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;text-align:center;transition:background .15s,border-color .15s;user-select:none;}
+.pin-key:hover{background:var(--surface);border-color:var(--accent);}
+.pin-key:active{background:var(--accent2);}
+.pin-key.del{color:var(--muted);font-size:16px;}
+.pin-error{color:var(--pending);font-size:13px;min-height:18px;text-align:center;}
+/* USER BADGE in header */
+.user-badge{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+.user-badge strong{color:var(--text);}
+.user-badge button{font-size:11px;padding:3px 8px;}
+/* USER MANAGEMENT in config */
+.user-row{display:grid;grid-template-columns:1fr 100px 60px auto;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px 10px;}
+.user-row input{font-size:13px;width:100%;}
+.level-badge{font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;text-align:center;}
+.level-badge.l1{background:var(--progress-bg);color:var(--progress);}
+.level-badge.l2{background:var(--complete-bg);color:var(--complete);}
+
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- ══ PIN SCREEN ══ -->
+<div class="pin-screen" id="pinScreen">
+  <div class="pin-card">
+    <div class="pin-logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
+    <div class="pin-subtitle">Enter your PIN to continue</div>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-keypad">
+      <div class="pin-key" onclick="pinKey('1')">1</div>
+      <div class="pin-key" onclick="pinKey('2')">2</div>
+      <div class="pin-key" onclick="pinKey('3')">3</div>
+      <div class="pin-key" onclick="pinKey('4')">4</div>
+      <div class="pin-key" onclick="pinKey('5')">5</div>
+      <div class="pin-key" onclick="pinKey('6')">6</div>
+      <div class="pin-key" onclick="pinKey('7')">7</div>
+      <div class="pin-key" onclick="pinKey('8')">8</div>
+      <div class="pin-key" onclick="pinKey('9')">9</div>
+      <div class="pin-key del" onclick="pinDel()">⌫</div>
+      <div class="pin-key" onclick="pinKey('0')">0</div>
+      <div class="pin-key del" onclick="pinClear()">✕</div>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
+  <div class="version-badge">v3.0.11</div>
+  <div class="spacer"></div>
+  <div class="user-badge" id="userBadge" style="display:none;">
+    <strong id="userBadgeName"></strong>
+    <button class="ghost" onclick="lockApp()" title="Lock / change user">🔒 Lock</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <div class="tab active" id="tab-tracker" onclick="switchTab('tracker')">📋 Tracker</div>
+  <div class="tab" id="tab-graph" onclick="switchTab('graph')">📈 Graph</div>
+  <div class="tab" id="tab-config" onclick="switchTab('config')">⚙ Config</div>
+</div>
+
+<!-- ══ TRACKER ══ -->
+<div id="pane-tracker">
+  <div class="tracker-toolbar">
+    <div class="campaign-select-wrap">
+      <label>Campaign</label>
+      <select id="campaignSelect" onchange="onCampaignChange()">
+        <option value="">— Select a campaign —</option>
+      </select>
+    </div>
+    <div class="drop-zone disabled" id="dropZone">⬆ Drop fleet .xlsx here</div>
+    <input type="file" id="fileInput" accept=".xlsx" style="display:none">
+    <div class="spacer" style="flex:1"></div>
+    <button id="btnRefresh" class="ghost" onclick="refreshCampaignData()" disabled title="Pull latest data from Supabase">↻ Refresh</button>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><span class="dot pending"></span> Pending <strong id="statPending">0</strong></div>
+    <div class="stat"><span class="dot progress"></span> In Progress <strong id="statProgress">0</strong></div>
+    <div class="stat"><span class="dot complete"></span> Complete <strong id="statComplete">0</strong></div>
+    <div class="stat" style="margin-left:auto;"><strong id="statTotal">0</strong> <span>vehicles shown</span></div>
+  </div>
+  <div class="filter-bar">
+    <div class="filter-item">
+      <label>Operator</label>
+      <select id="operatorFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Depot</label>
+      <select id="depotFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Status</label>
+      <select id="statusFilter" onchange="renderGrid()">
+        <option value="">— All —</option>
+        <option value="Pending">Pending</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Complete">Complete</option>
+      </select>
+    </div>
+    <div class="filter-item" id="userFilterItem" style="display:none;">
+      <label>User</label>
+      <select id="userFilter" onchange="renderGrid()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Search</label>
+      <input class="search-input" id="searchInput" type="text" placeholder="Body / Fleet / Reg..." oninput="renderGrid()">
+    </div>
+  </div>
+  <div id="trackerContent">
+    <div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>
+  </div>
+</div>
+
+<!-- ══ GRAPH ══ -->
+<div id="pane-graph" style="display:none;flex:1;overflow-y:auto;">
+  <div class="tracker-toolbar">
+    <div class="campaign-select-wrap">
+      <label>Campaign</label>
+      <select id="graphCampaignSelect" onchange="onGraphCampaignChange()">
+        <option value="">— Select a campaign —</option>
+      </select>
+    </div>
+    <span id="graphNoCampaign" style="font-size:12px;color:var(--muted);font-style:italic;display:none;">— Select a campaign to view graph —</span>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><span class="dot pending"></span> Pending <strong id="graphStatPending">0</strong></div>
+    <div class="stat"><span class="dot progress"></span> In Progress <strong id="graphStatProgress">0</strong></div>
+    <div class="stat"><span class="dot complete"></span> Complete <strong id="graphStatComplete">0</strong></div>
+    <div class="stat" style="margin-left:auto;"><strong id="graphStatTotal">0</strong> <span>vehicles shown</span></div>
+  </div>
+  <div class="filter-bar">
+    <div class="filter-item">
+      <label>Operator</label>
+      <select id="graphOperatorFilter" onchange="renderGraph()"><option value="">— All —</option></select>
+    </div>
+    <div class="filter-item">
+      <label>Depot</label>
+      <select id="graphDepotFilter" onchange="renderGraph()"><option value="">— All —</option></select>
+    </div>
+  </div>
+  <div style="padding:16px 24px 24px;position:relative;min-height:420px;">
+    <canvas id="progressChart"></canvas>
+    <div id="graphEmpty" style="display:none;padding:60px;text-align:center;color:var(--muted);font-size:14px;">No dated records yet. Save engineer entries to populate the graph.</div>
+  </div>
+</div>
+
+<!-- ══ CONFIG ══ -->
+<div id="pane-config" style="display:none;overflow-y:auto;flex:1;">
+  <div class="config-wrap">
+    <div class="config-section">
+      <h2>Create New Campaign</h2>
+      <div class="new-campaign-form">
+        <div class="field-group">
+          <label>Campaign Name</label>
+          <input type="text" id="newCampName" placeholder="e.g. VEDs1.5-SW-Update" style="width:100%;">
+        </div>
+
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Initial Fleet File <span style="font-style:italic;text-transform:none;letter-spacing:0;">(required)</span></div>
+          <div class="new-fleet-drop" id="newFleetDrop">⬆ Drop fleet .xlsx here to load vehicles</div>
+          <input type="file" id="newFleetInput" accept=".xlsx" style="display:none">
+          <div id="newDrivelineWrap" style="display:none;margin-top:12px;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;">Select Driveline Systems to include</div>
+            <div class="driveline-check-list" id="newDrivelineList"></div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
+          <div class="builder-area" id="newBuilderArea"></div>
+          <div class="builder-toolbar">
+            <button class="ghost" onclick="builderAddField('newBuilderArea')">+ Add Field</button>
+            <button class="ghost" onclick="builderAddGroup('newBuilderArea')">+ Add Group</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Assign Users <span style="font-style:italic;text-transform:none;letter-spacing:0;">(L0 = read only · L1 = read &amp; write · L2 see all campaigns)</span></div>
+          <div id="newCampUserAssign" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+        <div>
+          <button class="primary" onclick="createCampaign()" style="width:100%;">+ Create Campaign</button>
+        </div>
+      </div>
+    </div>
+    <div class="config-section" id="userManagementSection">
+      <h2>Users</h2>
+      <div style="display:flex;flex-direction:column;gap:8px;" id="userList"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="ghost" onclick="addUserRow()">+ Add User</button>
+        <button class="primary" onclick="saveUsers()">💾 Save Users</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h2>Campaigns</h2>
+      <div class="campaign-list" id="campaignList">
+        <div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ENTRY MODAL ══ -->
+<div class="modal-overlay" id="entryModalOverlay" onclick="handleEntryOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div><h2 id="modalTitle">—</h2><div class="body-meta" id="modalMeta">—</div></div>
+      <button class="modal-close" onclick="closeEntryModal()">✕</button>
+    </div>
+    <div class="vehicle-info" id="vehicleInfo"></div>
+    <div class="form-body" id="engFormBody"></div>
+    <div class="modal-footer">
+      <div class="status-wrap">Status: <span class="status-badge" id="modalStatus">—</span><span id="modalDate" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-left:6px;"></span></div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="closeEntryModal()">Cancel</button>
+        <button class="primary" onclick="saveEntry()">Save &amp; Sync</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EDIT CAMPAIGN MODAL ══ -->
+<div class="modal-overlay" id="editModalOverlay" onclick="handleEditOverlayClick(event)">
+  <div class="modal edit-modal">
+    <div class="modal-header">
+      <div><h2>Edit Campaign</h2></div>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px;">
+      <input type="hidden" id="editCampId">
+      <div class="field-group">
+        <label>Campaign Name</label>
+        <input type="text" id="editCampName" style="width:100%;">
+      </div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;">Engineer Fields</div>
+        <div class="builder-area" id="editBuilderArea"></div>
+        <div class="builder-toolbar">
+          <button class="ghost" onclick="builderAddField('editBuilderArea')">+ Add Field</button>
+          <button class="ghost" onclick="builderAddGroup('editBuilderArea')">+ Add Group</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:0 22px 16px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);">Assign Users <span style="font-style:italic;text-transform:none;letter-spacing:0;">(L0 = read only · L1 = read &amp; write)</span></div>
+      <div id="editCampUserAssign" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button onclick="closeEditModal()">Cancel</button>
+      <button class="primary" onclick="saveEditCampaign()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="alertModalOverlay">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div><h2 id="alertModalTitle">Notice</h2></div>
+      <button class="modal-close" onclick="closeAlertModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;font-size:14px;color:var(--text);line-height:1.6;" id="alertModalBody"></div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button class="primary" onclick="closeAlertModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirmModalOverlay">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div><h2 id="confirmModalTitle">Confirm</h2></div>
+      <button class="modal-close" onclick="closeConfirmModal()">✕</button>
+    </div>
+    <div style="padding:20px 22px;font-size:14px;color:var(--text);line-height:1.6;" id="confirmModalBody"></div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button onclick="closeConfirmModal()">Cancel</button>
+      <button class="danger" id="confirmModalOkBtn" style="margin-left:8px;">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ CONFIG ══
+const SUPABASE_URL  = 'https://plekykkdvevqblvdayhm.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_bpd9qIOrqVxtgcfejgFriQ_QVLYWjuP';
+const BUCKET        = 'campaign-data';
+const CAMP_LIST_FILE = 'CampaignList.json';
+const STORAGE_BASE  = `${SUPABASE_URL}/storage/v1/object`;
+const SB_HEADERS    = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+
+// ══ STATE ══
+let campaignList        = [];
+let vehicles            = [];
+let activeCampaign      = null;
+let graphVehicles       = [];
+let graphActiveCampaign = null;
+let currentIdx          = null;
+let toggleStates        = {};
+let _originalEngData    = null;  // snapshot of engineer_data when modal opens
+
+// ══ SUPABASE ══
+async function sbGet(path) {
+  const res = await fetch(`${STORAGE_BASE}/${BUCKET}/${path}`, { headers: SB_HEADERS });
+  if (res.status === 404 || res.status === 400) return null;
+  if (!res.ok) throw new Error(`GET ${path}: ${res.status}`);
+  return res.json();
+}
+async function sbPut(path, data) {
+  const res = await fetch(`${STORAGE_BASE}/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Content-Type': 'application/json', 'x-upsert': 'true' },
+    body: JSON.stringify(data, null, 2),
+  });
+  if (!res.ok) throw new Error(`PUT ${path}: ${await res.text()}`);
+}
+
+// ══ MIGRATION: convert old `fields` format to new `schema` format ══
+function migrateCampaign(c) {
+  // Already has schema — check items have kind set
+  if (c.schema && Array.isArray(c.schema) && c.schema.length > 0) {
+    c.schema = c.schema.map(item => {
+      if (!item.kind) item.kind = 'field'; // ensure kind is set
+      return item;
+    });
+    return c;
+  }
+  // Old format: c.fields = [{id,label,type,options}]
+  if (c.fields && Array.isArray(c.fields)) {
+    c.schema = c.fields.map(f => ({
+      kind: 'field',
+      id:   f.id    || `f_${Math.random().toString(36).slice(2)}`,
+      label: f.label || '',
+      type:  f.type  || 'text',
+      options: f.options || [],
+    }));
+    delete c.fields;
+  } else {
+    c.schema = [];
+  }
+  return c;
+}
+
+// ══ INIT ══
+async function init() {
+  setTrackerEmpty('Loading…', 'Connecting to Supabase.');
+  // Load users list too
+  await loadUserList();
+  try {
+    const data = await sbGet(CAMP_LIST_FILE);
+    campaignList = data && Array.isArray(data) ? data : [];
+  } catch(e) { showToast('Could not load campaign list: ' + e.message, 'error'); campaignList = []; }
+
+  // Migrate any old-format campaigns
+  let needsSave = false;
+  campaignList = campaignList.map(c => {
+    const before = JSON.stringify(c);
+    const migrated = migrateCampaign(c);
+    if (JSON.stringify(migrated) !== before) needsSave = true;
+    return migrated;
+  });
+  if (needsSave) {
+    try { await sbPut(CAMP_LIST_FILE, campaignList); } catch(e) { console.warn('Migration save failed:', e); }
+  }
+
+  refreshCampaignDropdown();
+  renderCampaignList();
+  setupDrop();
+  setupNewFleetDrop();
+  setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
+}
+
+// ══ TABS ══
+function switchTab(t) {
+  document.getElementById('pane-tracker').style.display = t==='tracker'?'block':'none';
+  if (t==='tracker') {
+    // Sync tracker operator/depot filters to match graph's current selection
+    const gOp  = document.getElementById('graphOperatorFilter').value;
+    const gDep = document.getElementById('graphDepotFilter').value;
+    if (document.getElementById('operatorFilter').value !== gOp)  { document.getElementById('operatorFilter').value = gOp; }
+    if (document.getElementById('depotFilter').value   !== gDep)  { document.getElementById('depotFilter').value   = gDep; }
+    renderGrid();
+  }
+  document.getElementById('pane-graph').style.display   = t==='graph'  ?'block':'none';
+  document.getElementById('pane-config').style.display  = t==='config' ?'block':'none';
+  document.getElementById('tab-tracker').classList.toggle('active', t==='tracker');
+  document.getElementById('tab-graph').classList.toggle('active',   t==='graph');
+  document.getElementById('tab-config').classList.toggle('active',  t==='config');
+  if (t==='graph') {
+    // Always sync graph state from tracker on every tab open
+    graphActiveCampaign = activeCampaign;
+    graphVehicles = vehicles.slice();
+    if (activeCampaign) {
+      document.getElementById('graphCampaignSelect').value = activeCampaign.id;
+      populateGraphFilters();
+    }
+    // Sync operator/depot filters from tracker
+    document.getElementById('graphOperatorFilter').value = document.getElementById('operatorFilter').value;
+    document.getElementById('graphDepotFilter').value   = document.getElementById('depotFilter').value;
+    requestAnimationFrame(() => renderGraph());
+  }
+}
+
+// ══ CAMPAIGN DROPDOWN ══
+function refreshCampaignDropdown() {
+  const visible = visibleCampaigns();
+  for (const id of ['campaignSelect', 'graphCampaignSelect']) {
+    const sel = document.getElementById(id);
+    const cur = activeCampaign ? activeCampaign.id : '';
+    sel.innerHTML = '<option value="">— Select a campaign —</option>';
+    visible.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = `${c.name}  [${c.status.toUpperCase()}]`;
+      sel.appendChild(o);
+    });
+    sel.value = (visible.find(c=>c.id===cur)) ? cur : '';
+  }
+}
+
+async function loadCampaign(id) {
+  // Sync both dropdowns
+  document.getElementById('campaignSelect').value      = id || '';
+  document.getElementById('graphCampaignSelect').value = id || '';
+
+  if (!id) {
+    activeCampaign = null; graphActiveCampaign = null;
+    vehicles = []; graphVehicles = [];
+    document.getElementById('campaignSelect').value      = '';
+    document.getElementById('graphCampaignSelect').value = '';
+    document.getElementById('dropZone').classList.add('disabled');
+    document.getElementById('btnRefresh').disabled = true;
+    clearAllFilters();
+    resetStats(); resetGraphStats();
+    document.getElementById('trackerContent').innerHTML = '<div class="empty-state"><strong>No campaign selected</strong>Select a campaign above, or create one in the Config tab.</div>';
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    document.getElementById('progressChart').style.display = 'none';
+    document.getElementById('graphEmpty').style.display    = 'none';
+    document.getElementById('graphNoCampaign').style.display = 'inline';
+    return;
+  }
+
+  const campaign = campaignList.find(c => c.id === id);
+  activeCampaign = campaign;
+  graphActiveCampaign = campaign;
+  document.getElementById('dropZone').classList.remove('disabled');
+  setTrackerLoading(`Loading ${campaign.name}…`);
+
+  try {
+    const data = await sbGet(campaign.fileName);
+    vehicles = data && Array.isArray(data) ? data : [];
+    graphVehicles = vehicles;
+    clearAllFilters();
+    if (vehicles.length === 0) {
+      setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file to import vehicles.');
+    } else {
+      populateFilters();
+      populateGraphFilters();
+      renderGrid();
+    }
+    document.getElementById('btnRefresh').disabled = false;
+    document.getElementById('graphNoCampaign').style.display = 'none';
+    // Re-render graph if it's visible
+    if (document.getElementById('pane-graph').style.display !== 'none') renderGraph();
+  } catch(e) {
+    showToast('Failed to load: '+e.message,'error');
+    setTrackerEmpty('Load failed',e.message);
+  }
+}
+
+async function onCampaignChange() {
+  await loadCampaign(document.getElementById('campaignSelect').value);
+}
+
+async function onGraphCampaignChange() {
+  await loadCampaign(document.getElementById('graphCampaignSelect').value);
+  requestAnimationFrame(() => renderGraph());
+}
+
+// ══ FIELD BUILDER (shared between new & edit) ══
+// Schema items:
+//   {kind:'field', id, label, type:'text'|'toggle'|'dropdown', options:[]}
+//   {kind:'group', id, title, fields:[...]}
+
+// ── Drag state ──
+let _drag = null; // { el, isField }
+
+function builderAddField(areaId, fieldData) {
+  const f = fieldData || { id:`f_${Date.now()}`, label:'', type:'text', options:[] };
+  const area = document.getElementById(areaId);
+  if (!area._dropSetup) { setupBuilderAreaDrop(areaId); area._dropSetup = true; }
+  area.appendChild(makeFieldRow(f));
+}
+
+function builderAddGroup(areaId, groupData) {
+  const g = groupData || { id:`g_${Date.now()}`, title:'', fields:[] };
+  const area = document.getElementById(areaId);
+  if (!area._dropSetup) { setupBuilderAreaDrop(areaId); area._dropSetup = true; }
+  area.appendChild(makeGroupBlock(g));
+}
+
+function makeFieldRow(f) {
+  const row = document.createElement('div');
+  row.className = 'field-row';
+  row.dataset.kind = 'field';
+  row.dataset.fieldId = f.id;
+  const optsHidden = f.type !== 'dropdown' ? 'display:none' : '';
+  row.innerHTML = `
+    <span class="drag-handle" title="Drag to reorder or move into/out of groups">⠿</span>
+    <input type="text" class="field-label-input" placeholder="Field label" value="${esc(f.label)}">
+    <select class="field-type-select" onchange="onTypeChange(this)">
+      <option value="text"     ${f.type==='text'    ?'selected':''}>Text</option>
+      <option value="toggle"   ${f.type==='toggle'  ?'selected':''}>Yes/No</option>
+      <option value="dropdown" ${f.type==='dropdown'?'selected':''}>Dropdown</option>
+    </select>
+    <input type="text" class="opts-input" placeholder="Opt1, Opt2…" value="${esc((f.options||[]).join(', '))}" style="${optsHidden}">
+    <button class="remove-btn" onclick="this.closest('.field-row').remove()" title="Remove">✕</button>
+  `;
+  setupFieldDrag(row);
+  return row;
+}
+
+function makeGroupBlock(g) {
+  const block = document.createElement('div');
+  block.className = 'group-block';
+  block.dataset.kind = 'group';
+  block.dataset.groupId = g.id;
+  block.innerHTML = `
+    <div class="group-block-header">
+      <span class="drag-handle group-drag-handle" title="Drag to reorder group">⠿</span>
+      <input type="text" class="group-title-input" placeholder="Group title…" value="${esc(g.title)}">
+      <button class="remove-btn" onclick="this.closest('.group-block').remove()" title="Remove group">✕</button>
+    </div>
+    <div class="group-fields"></div>
+    <button class="ghost group-add-btn" onclick="addFieldToGroup(this)">+ Add field to group</button>
+  `;
+  const fieldsEl = block.querySelector('.group-fields');
+  (g.fields||[]).forEach(f => fieldsEl.appendChild(makeFieldRow(f)));
+  setupGroupDrag(block);
+  setupGroupFieldsDrop(fieldsEl);
+  return block;
+}
+
+function addFieldToGroup(btn) {
+  const fieldsEl = btn.closest('.group-block').querySelector('.group-fields');
+  fieldsEl.appendChild(makeFieldRow({ id:`f_${Date.now()}`, label:'', type:'text', options:[] }));
+}
+
+function onTypeChange(sel) {
+  sel.closest('.field-row').querySelector('.opts-input').style.display = sel.value==='dropdown' ? '' : 'none';
+}
+
+// ── Field drag: can be dragged into/out of groups and reordered ──
+function setupFieldDrag(row) {
+  const handle = row.querySelector('.drag-handle');
+  handle.draggable = true;
+
+  handle.addEventListener('dragstart', e => {
+    _drag = { el: row, isField: true };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    setTimeout(() => row.classList.add('dragging'), 0);
+  });
+
+  handle.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    clearDropIndicators();
+    clearGroupHighlights();
+    _drag = null;
+  });
+
+  // Drop ON another field row — insert before/after based on mouse Y
+  row.addEventListener('dragover', e => {
+    if (!_drag || !_drag.isField || _drag.el === row) return;
+    e.preventDefault(); e.stopPropagation();
+    const rect = row.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    const ind = makeIndicator();
+    if (after) row.after(ind); else row.before(ind);
+  });
+
+  row.addEventListener('drop', e => {
+    if (!_drag || !_drag.isField || _drag.el === row) return;
+    e.preventDefault(); e.stopPropagation();
+    const ind = document.querySelector('.drop-indicator');
+    const rect = row.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    if (after) row.after(_drag.el); else row.before(_drag.el);
+  });
+}
+
+// ── Group drag: reorder whole groups within the builder area ──
+function setupGroupDrag(block) {
+  const handle = block.querySelector('.group-drag-handle');
+  handle.draggable = true;
+
+  handle.addEventListener('dragstart', e => {
+    _drag = { el: block, isField: false };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    setTimeout(() => block.classList.add('dragging'), 0);
+  });
+
+  handle.addEventListener('dragend', () => {
+    block.classList.remove('dragging');
+    clearDropIndicators();
+    _drag = null;
+  });
+
+  block.addEventListener('dragover', e => {
+    if (!_drag || _drag.isField || _drag.el === block) return;
+    e.preventDefault(); e.stopPropagation();
+    const rect = block.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    const ind = makeIndicator();
+    if (after) block.after(ind); else block.before(ind);
+  });
+
+  block.addEventListener('drop', e => {
+    if (!_drag || _drag.isField || _drag.el === block) return;
+    e.preventDefault(); e.stopPropagation();
+    const rect = block.getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    clearDropIndicators();
+    if (after) block.after(_drag.el); else block.before(_drag.el);
+  });
+}
+
+// ── Builder area top-level drop zone (fields dragged out of groups land here) ──
+function setupBuilderAreaDrop(areaId) {
+  const area = document.getElementById(areaId);
+  area.addEventListener('dragover', e => {
+    if (!_drag || !_drag.isField) return;
+    // Only handle if directly over the area (not a child)
+    if (e.target !== area) return;
+    e.preventDefault();
+    clearDropIndicators();
+    clearGroupHighlights();
+    const ind = makeIndicator();
+    area.appendChild(ind);
+  });
+  area.addEventListener('drop', e => {
+    if (!_drag || !_drag.isField) return;
+    if (e.target !== area) return;
+    e.preventDefault();
+    clearDropIndicators();
+    area.appendChild(_drag.el);
+  });
+}
+
+// ── Group fields drop zone (fields dragged into groups land here) ──
+function setupGroupFieldsDrop(fieldsEl) {
+  // Always handle dragover so the browser permits dropping (even when empty)
+  fieldsEl.addEventListener('dragover', e => {
+    if (!_drag || !_drag.isField) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    clearGroupHighlights();
+    fieldsEl.classList.add('drag-over-empty');
+  });
+  fieldsEl.addEventListener('dragleave', e => {
+    if (!fieldsEl.contains(e.relatedTarget)) {
+      fieldsEl.classList.remove('drag-over-empty');
+    }
+  });
+  fieldsEl.addEventListener('drop', e => {
+    if (!_drag || !_drag.isField) return;
+    e.preventDefault();
+    e.stopPropagation();
+    clearDropIndicators();
+    clearGroupHighlights();
+    // If dropped directly on a field-row inside the group, the field-row
+    // drop handler will have already moved it; otherwise append to group
+    if (!e.target.closest('.field-row')) {
+      fieldsEl.appendChild(_drag.el);
+    }
+  });
+}
+
+function makeIndicator() {
+  const d = document.createElement('div');
+  d.className = 'drop-indicator';
+  return d;
+}
+function clearDropIndicators() {
+  document.querySelectorAll('.drop-indicator').forEach(d => d.remove());
+}
+function clearGroupHighlights() {
+  document.querySelectorAll('.group-fields.drag-over-empty').forEach(el => el.classList.remove('drag-over-empty'));
+}
+
+function readBuilderSchema(areaId) {
+  const items = [];
+  document.querySelectorAll(`#${areaId} > .field-row, #${areaId} > .group-block`).forEach(el => {
+    if (el.classList.contains('field-row')) {
+      items.push(readFieldRow(el));
+    } else if (el.classList.contains('group-block')) {
+      const fields = [];
+      el.querySelectorAll('.group-fields > .field-row').forEach(fr => fields.push(readFieldRow(fr)));
+      items.push({ kind:'group', id: el.dataset.groupId || `g_${Date.now()}`, title: el.querySelector('.group-title-input').value.trim(), fields });
+    }
+  });
+  return items;
+}
+
+function readFieldRow(row) {
+  const label = row.querySelector('.field-label-input').value.trim();
+  const type  = row.querySelector('.field-type-select').value;
+  const opts  = row.querySelector('.opts-input').value.trim();
+  return { kind:'field', id: row.dataset.fieldId || `f_${Date.now()}`, label: label||'Unnamed', type, options: type==='dropdown' ? opts.split(',').map(s=>s.trim()).filter(Boolean) : [] };
+}
+
+function populateBuilder(areaId, schema) {
+  const area = document.getElementById(areaId);
+  area.innerHTML = '';
+  setupBuilderAreaDrop(areaId);
+  (schema||[]).forEach(item => {
+    if (item.kind === 'group') builderAddGroup(areaId, item);
+    else builderAddField(areaId, item);
+  });
+}
+
+// ══ NEW CAMPAIGN FLEET PICKER ══
+let _newFleetRows = [];  // raw xlsx rows cached during creation
+
+function setupNewFleetDrop() {
+  const drop  = document.getElementById('newFleetDrop');
+  const input = document.getElementById('newFleetInput');
+  drop.addEventListener('click', () => input.click());
+  input.addEventListener('change', e => { if (e.target.files[0]) loadNewFleet(e.target.files[0]); e.target.value=''; });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.xlsx')) loadNewFleet(f);
+    else showToast('Please drop a .xlsx file','error');
+  });
+}
+
+async function loadNewFleet(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb  = window.XLSX.read(buf, { type:'array' });
+    let wsName = wb.SheetNames.find(n => n === 'CM Warranty');
+    if (!wsName) wsName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'cm warranty');
+    if (!wsName) { showToast('Sheet "CM Warranty" not found. Available: ' + wb.SheetNames.join(', '), 'error'); return; }
+    _newFleetRows = window.XLSX.utils.sheet_to_json(wb.Sheets[wsName], { header:1, defval:null });
+
+    // Extract unique driveline systems from rows passing Delivered to Customer filter
+    const dlSet = new Set();
+    const dlCounts = {};
+    const delivFilter = 'delivered to customer';
+    for (let r = 1; r < _newFleetRows.length; r++) {
+      const row = _newFleetRows[r];
+      if (!row) continue;
+      const prod = row[0] ? String(row[0]).trim().toLowerCase() : '';
+      const ship = row[1] ? String(row[1]).trim().toLowerCase() : '';
+      if (prod !== delivFilter && ship !== delivFilter) continue;
+      const dl = row[25] ? String(row[25]).trim() : '';
+      if (!dl) continue;
+      dlSet.add(dl);
+      dlCounts[dl] = (dlCounts[dl] || 0) + 1;
+    }
+
+    const list = document.getElementById('newDrivelineList');
+    list.innerHTML = '';
+    const sorted = [...dlSet].sort();
+    if (sorted.length === 0) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;">No delivered vehicles found in this file.</div>';
+    } else {
+      sorted.forEach(dl => {
+        const id = `dl_${dl.replace(/[^a-z0-9]/gi,'_')}`;
+        const item = document.createElement('div');
+        item.className = 'dl-check-item';
+        item.innerHTML = `
+          <input type="checkbox" id="${id}" value="${dl}">
+          <label for="${id}">${dl}</label>
+          <span class="dl-count">${dlCounts[dl]} vehicle${dlCounts[dl]!==1?'s':''}</span>`;
+        list.appendChild(item);
+      });
+    }
+    document.getElementById('newDrivelineWrap').style.display = 'block';
+    document.getElementById('newFleetDrop').textContent = '✓ ' + file.name + ' — drop again to replace';
+    showToast(`Fleet file loaded — ${sorted.length} driveline system${sorted.length!==1?'s':''} found`, 'info');
+  } catch(e) {
+    showToast('Fleet parse error: ' + e.message, 'error');
+  }
+}
+
+// ══ CREATE CAMPAIGN ══
+async function createCampaign() {
+  const name = document.getElementById('newCampName').value.trim();
+  if (!name) { showToast('Please enter a campaign name','error'); return; }
+
+  // Validate fleet file loaded
+  if (_newFleetRows.length === 0) { showToast('Please load an initial fleet file','error'); return; }
+
+  // Get selected driveline systems
+  const selectedDL = [...document.querySelectorAll('#newDrivelineList input[type=checkbox]:checked')].map(cb => cb.value);
+  if (selectedDL.length === 0) { showToast('Please select at least one Driveline System','error'); return; }
+
+  const schema = readBuilderSchema('newBuilderArea');
+  const id = `camp_${Date.now()}`;
+  const safeName = name.replace(/[^a-zA-Z0-9_\-]/g,'_');
+  const fileName = `${safeName}-CampaignData.json`;
+  const assignedUsers = getAssignedIds('newCampUserAssign');
+  const campaign = { id, name, fileName, status:'open', schema, drivelineSystems: selectedDL, assignedUsers, createdAt:new Date().toISOString() };
+
+  // Parse initial vehicles using selected driveline filter
+  const initialVehicles = parseRowsWithFilter(_newFleetRows, selectedDL, schema);
+
+  campaignList.push(campaign);
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    await sbPut(fileName, initialVehicles);
+    showToast(`Campaign "${name}" created with ${initialVehicles.length} vehicles`, 'success');
+    // Reset form
+    document.getElementById('newCampName').value = '';
+    document.getElementById('newBuilderArea').innerHTML = '';
+    document.getElementById('newDrivelineWrap').style.display = 'none';
+    document.getElementById('newDrivelineList').innerHTML = '';
+    document.getElementById('newFleetDrop').textContent = '⬆ Drop fleet .xlsx here to load vehicles';
+    _newFleetRows = [];
+    refreshCampaignDropdown();
+    renderCampaignList();
+  } catch(e) { campaignList.pop(); showToast('Create failed: '+e.message,'error'); }
+}
+
+// ══ CAMPAIGN LIST ══
+function renderCampaignList() {
+  // Also refresh user management UI when rendering config
+  renderUserManagement();
+  renderUserAssignPickers();
+  const el = document.getElementById('campaignList');
+  if (campaignList.length===0) { el.innerHTML='<div class="empty-state" style="padding:24px;"><strong>No campaigns yet</strong>Create one above.</div>'; return; }
+  el.innerHTML='';
+  campaignList.forEach(c => {
+    const div = document.createElement('div');
+    div.className='campaign-item';
+    const preview = schemaPreview(c.schema);
+    div.innerHTML=`
+      <div class="campaign-item-header">
+        <div style="flex:1;">
+          <div class="camp-name">${esc(c.name)}</div>
+          <div class="camp-file">${c.fileName}</div>
+        </div>
+        <span class="camp-status-badge ${c.status}" onclick="event.stopPropagation();toggleCampaignStatus('${c.id}')">${c.status.toUpperCase()}</span>
+        <button class="ghost" style="font-size:12px;padding:5px 10px;" onclick="event.stopPropagation();openEditModal('${c.id}')">✏ Edit</button>
+        <button class="danger" style="font-size:12px;padding:5px 10px;" onclick="event.stopPropagation();deleteCampaign('${c.id}')">🗑 Delete</button>
+      </div>
+      ${preview ? `<div class="camp-preview">${preview}</div>` : ''}
+    `;
+    el.appendChild(div);
+  });
+}
+
+function schemaPreview(schema) {
+  if (!schema || schema.length===0) return 'No fields defined';
+  return schema.map(item => item.kind==='group' ? `[${esc(item.title||'Group')}: ${item.fields.map(f=>esc(f.label)).join(', ')}]` : esc(item.label)).join(' · ');
+}
+
+async function toggleCampaignStatus(id) {
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+  c.status = c.status==='open'?'closed':'open';
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    renderCampaignList(); refreshCampaignDropdown();
+    showToast(`"${c.name}" marked as ${c.status}`,'success');
+  } catch(e) { c.status=c.status==='open'?'closed':'open'; showToast('Update failed: '+e.message,'error'); }
+}
+
+async function deleteCampaign(id) {
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+
+  // Check for any In Progress or Complete records
+  try {
+    const data = await sbGet(c.fileName);
+    const records = data && Array.isArray(data) ? data : [];
+    const hasStarted = records.some(v => v.update_status === 'In Progress' || v.update_status === 'Complete');
+    if (hasStarted) {
+      showAlertModal('Cannot Delete Campaign', 'Campaign has started, editing not allowed.');
+      return;
+    }
+  } catch(e) {
+    showToast('Could not verify campaign status: ' + e.message, 'error');
+    return;
+  }
+
+  // Confirm deletion
+  showConfirmModal(
+    'Delete Campaign',
+    `Are you sure you want to delete "${c.name}"? This cannot be undone.`,
+    async () => {
+      campaignList = campaignList.filter(x => x.id !== id);
+      try {
+        await sbPut(CAMP_LIST_FILE, campaignList);
+        // If this was the active campaign, clear it
+        if (activeCampaign && activeCampaign.id === id) {
+          activeCampaign = null;
+          vehicles = [];
+          document.getElementById('dropZone').classList.add('disabled');
+          document.getElementById('btnRefresh').disabled = true;
+          resetStats();
+          setTrackerEmpty('No campaign selected', 'Select a campaign above, or create one in the Config tab.');
+        }
+        refreshCampaignDropdown();
+        renderCampaignList();
+        showToast(`"${c.name}" deleted`, 'success');
+      } catch(e) {
+        campaignList.push(c); // revert
+        showToast('Delete failed: ' + e.message, 'error');
+      }
+    }
+  );
+}
+
+// ══ EDIT CAMPAIGN MODAL ══
+async function openEditModal(id) {
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+
+  let isLocked = false;
+  try {
+    const data = await sbGet(c.fileName);
+    const records = data && Array.isArray(data) ? data : [];
+    isLocked = records.some(v => v.update_status === 'In Progress' || v.update_status === 'Complete');
+  } catch(e) {
+    showToast('Could not verify campaign status: ' + e.message, 'error');
+    return;
+  }
+
+  document.getElementById('editCampId').value = id;
+  document.getElementById('editCampName').value = c.name;
+
+  // Fields/name editable only if not locked
+  const nameInput    = document.getElementById('editCampName');
+  const builderArea  = document.getElementById('editBuilderArea');
+  const builderTools = document.querySelector('#editModalOverlay .builder-toolbar');
+  nameInput.disabled   = isLocked;
+  builderArea.style.opacity = isLocked ? '0.45' : '1';
+  builderArea.style.pointerEvents = isLocked ? 'none' : '';
+  if (builderTools) { builderTools.style.opacity = isLocked ? '0.45' : '1'; builderTools.style.pointerEvents = isLocked ? 'none' : ''; }
+
+  if (isLocked) {
+    // Show lock notice but keep modal open for user assignment
+    document.getElementById('editModalOverlay').querySelector('h2').textContent = 'Edit Campaign (Started — field editing locked)';
+  } else {
+    document.getElementById('editModalOverlay').querySelector('h2').textContent = 'Edit Campaign';
+  }
+
+  populateBuilder('editBuilderArea', c.schema||[]);
+  // Populate user assignment picker
+  renderAssignPicker('editCampUserAssign', c.assignedUsers || []);
+  document.getElementById('editModalOverlay').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('editModalOverlay').classList.remove('open');
+}
+
+function handleEditOverlayClick(e) {
+  if (e.target===document.getElementById('editModalOverlay')) closeEditModal();
+}
+
+async function saveEditCampaign() {
+  const id   = document.getElementById('editCampId').value;
+  const name = document.getElementById('editCampName').value.trim();
+  if (!name) { showToast('Campaign name cannot be empty','error'); return; }
+  const c = campaignList.find(x=>x.id===id);
+  if (!c) return;
+  c.name   = name;
+  c.schema = readBuilderSchema('editBuilderArea');
+  c.assignedUsers = getAssignedIds('editCampUserAssign');
+  try {
+    await sbPut(CAMP_LIST_FILE, campaignList);
+    showToast(`"${name}" updated`,'success');
+    refreshCampaignDropdown();
+    renderCampaignList();
+    closeEditModal();
+    // If this is the active campaign, refresh
+    if (activeCampaign && activeCampaign.id === id) activeCampaign = c;
+  } catch(e) { showToast('Save failed: '+e.message,'error'); }
+}
+
+// ══ FLEET PARSING ══
+function setupDrop() {
+  const zone = document.getElementById('dropZone');
+  zone.addEventListener('click', ()=>{ if(!zone.classList.contains('disabled')) document.getElementById('fileInput').click(); });
+  document.getElementById('fileInput').addEventListener('change', e=>{ if(e.target.files[0]) handleXlsx(e.target.files[0]); e.target.value=''; });
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); if(!zone.classList.contains('disabled')) zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag-over'); if(zone.classList.contains('disabled')) return; const f=e.dataTransfer.files[0]; if(f&&f.name.endsWith('.xlsx')) handleXlsx(f); else showToast('Please drop a .xlsx file','error'); });
+}
+
+const MONTH_MAP={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+
+function excelDateToString(val) {
+  if (!val) return null;
+  const s=String(val).trim();
+  if (isNaN(s)) return s;
+  const utc=new Date(Date.UTC(1899,11,30)+parseInt(s)*86400000);
+  return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth()+1).padStart(2,'0')}-${String(utc.getUTCDate()).padStart(2,'0')}`;
+}
+
+// Parse a single raw xlsx row, filtering by Delivered to Customer + allowed driveline systems
+// allowedDL = array of driveline system strings; if null/empty uses legacy 'veds 1.5' hardcode
+function parseXlsxRow(row, allowedDL) {
+  const prod=row[0]?String(row[0]).trim():'', ship=row[1]?String(row[1]).trim():'';
+  const dl=row[25]?String(row[25]).trim():'';
+  const f='delivered to customer';
+  if (prod.toLowerCase()!==f && ship.toLowerCase()!==f) return null;
+  if (allowedDL && allowedDL.length > 0) {
+    if (!allowedDL.map(s=>s.toLowerCase()).includes(dl.toLowerCase())) return null;
+  } else {
+    if (dl.toLowerCase()!=='veds 1.5') return null;
+  }
+  const bodyNum=row[6]?String(row[6]).trim():null;
+  if (!bodyNum) return null;
+  const rms=row[16]?String(row[16]).trim().toLowerCase():null, ry=row[17]?parseInt(row[17]):null;
+  let rd=null;
+  if (ry&&rms&&MONTH_MAP[rms]) rd=`${ry}-${String(MONTH_MAP[rms]).padStart(2,'0')}`;
+  else if (ry) rd=String(ry);
+  return { body_number:bodyNum, production_status:prod||null, shipping_status:ship||null, delivery_date:excelDateToString(row[4]), fleet_number:row[7]?String(row[7]).trim():null, account_name:row[8]?String(row[8]).trim():null, operator:row[9]?String(row[9]).trim():null, depot:row[10]?String(row[10]).trim():null, model:row[11]?String(row[11]).trim():null, deck_type:row[14]?String(row[14]).trim():null, registration:row[15]?String(row[15]).trim():null, reg_date:rd, chassis_number:row[18]?String(row[18]).trim():null };
+}
+
+// Parse all rows from a fleet file using campaign's driveline filter, returns vehicle array
+function parseRowsWithFilter(rows, allowedDL, schema) {
+  const vehicles = [];
+  const seen = new Set();
+  for (let r = 1; r < rows.length; r++) {
+    const p = parseXlsxRow(rows[r], allowedDL);
+    if (!p || seen.has(p.body_number)) continue;
+    seen.add(p.body_number);
+    p.update_status = 'Pending';
+    p.engineer_data = buildEmptyEngineerData(schema);
+    vehicles.push(p);
+  }
+  return vehicles;
+}
+
+function buildEmptyEngineerData(schema) {
+  const data={submitted_date:null,notes:null};
+  flatFields(schema).forEach(f=>{ data[f.id]=f.type==='toggle'?false:null; });
+  return data;
+}
+
+function flatFields(schema) {
+  const all=[];
+  (schema||[]).forEach(item=>{ if(item.kind==='group') (item.fields||[]).forEach(f=>all.push(f)); else all.push(item); });
+  return all;
+}
+
+async function handleXlsx(file) {
+  if (!activeCampaign) { showToast('Select a campaign first','error'); return; }
+  showToast('Parsing fleet file…','info');
+  try {
+    const buf=await file.arrayBuffer();
+    const wb=window.XLSX.read(buf,{type:'array'});
+    let wsName=wb.SheetNames.find(n=>n==='CM Warranty');
+    if (!wsName) wsName=wb.SheetNames.find(n=>n.trim().toLowerCase()==='cm warranty');
+    if (!wsName) { showToast('Sheet not found. Available: '+wb.SheetNames.join(', '),'error'); return; }
+    const rows=window.XLSX.utils.sheet_to_json(wb.Sheets[wsName],{header:1,defval:null});
+    // Use campaign's saved driveline filter (fall back to legacy 'veds 1.5' if not set)
+    const allowedDL = activeCampaign.drivelineSystems || null;
+    const existingMap={};
+    vehicles.forEach((v,i)=>{ existingMap[v.body_number]=i; });
+    let added=0;
+    for (let r=1;r<rows.length;r++) {
+      const p=parseXlsxRow(rows[r], allowedDL); if(!p) continue;
+      if (existingMap[p.body_number]!==undefined) {
+        const ex=vehicles[existingMap[p.body_number]];
+        const saved={engineer_data:ex.engineer_data,update_status:ex.update_status};
+        Object.assign(ex,p,saved);
+      } else {
+        p.update_status='Pending';
+        p.engineer_data=buildEmptyEngineerData(activeCampaign.schema);
+        existingMap[p.body_number]=vehicles.length;
+        vehicles.push(p);
+        added++;
+      }
+    }
+    populateFilters(); renderGrid();
+    showToast(`${added} new vehicles added. Syncing…`,'info');
+    await syncCampaignData(true);
+  } catch(e) { showToast('Parse error: '+e.message,'error'); console.error(e); }
+}
+
+async function syncCampaignData(silent=false) {
+  if (!activeCampaign) return;
+  try { await sbPut(activeCampaign.fileName, vehicles); if(!silent) showToast('Sync complete','success'); }
+  catch(e) { showToast('Sync failed: '+e.message,'error'); }
+}
+
+async function refreshCampaignData() {
+  if (!activeCampaign) return;
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.textContent = '\u21bb Refreshing…';
+  try {
+    const data = await sbGet(activeCampaign.fileName);
+    vehicles = data && Array.isArray(data) ? data : [];
+    if (vehicles.length === 0) {
+      setTrackerEmpty('No vehicles yet', 'Drop a fleet .xlsx file to import vehicles.');
+    } else {
+      populateFilters();
+      renderGrid();
+    }
+    showToast('Refreshed — ' + vehicles.length + ' vehicles loaded', 'success');
+  } catch(e) {
+    showToast('Refresh failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\u21bb Refresh';
+  }
+}
+
+// ══ FILTERS ══
+// Populate all filters using the full vehicle set initially.
+// After initial load, updateContextFilters() keeps each dropdown
+// constrained to values present in the vehicles passing the OTHER active filters.
+function populateFilters() {
+  populateSelect('operatorFilter', vehicles.map(v=>v.operator), '— All —');
+  populateSelect('depotFilter',    vehicles.map(v=>v.depot),    '— All —', true);
+  populateUserFilter();
+}
+
+function populateUserFilter() {
+  const sel = document.getElementById('userFilter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— All —</option>';
+  const seen = new Set();
+  vehicles.forEach(v => {
+    const id   = v.engineer_data && v.engineer_data.updated_by_id;
+    const name = v.engineer_data && v.engineer_data.updated_by_name;
+    if (id && name && !seen.has(id)) {
+      seen.add(id);
+      const o = document.createElement('option');
+      o.value = id; o.textContent = name;
+      sel.appendChild(o);
+    }
+  });
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+function populateGraphFilters() {
+  populateSelect('graphOperatorFilter', graphVehicles.map(v=>v.operator), '— All —');
+  populateSelect('graphDepotFilter',    graphVehicles.map(v=>v.depot),        '— All —', true);
+}
+
+function populateSelect(id, values, placeholder, includeUnknown=false) {
+  const sel=document.getElementById(id), cur=sel.value;
+  sel.innerHTML=`<option value="">${placeholder}</option>`;
+  [...new Set(values.filter(Boolean))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o);
+  });
+  if (includeUnknown && values.some(v=>!v)) {
+    const o=document.createElement('option'); o.value='__unknown__'; o.textContent='Unknown'; sel.appendChild(o);
+  }
+  // Restore selection if still valid, otherwise reset to all
+  sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
+}
+
+function searchRegex(q) {
+  // Strip spaces, uppercase, then convert * wildcards to regex .*
+  const clean = q.replace(/\s/g, '').toUpperCase();
+  if (!clean.includes('*')) return null; // no wildcard — use plain includes
+  const escaped = clean.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(escaped);
+}
+
+function matchesSearch(v, q) {
+  if (!q) return true;
+  const uq  = q.replace(/\s/g, '').toUpperCase();
+  const rx  = searchRegex(q);
+  const test = (val) => {
+    if (!val) return false;
+    const s = val.replace(/\s/g, '').toUpperCase();
+    return rx ? rx.test(s) : s.includes(uq);
+  };
+  return test(v.body_number) || test(v.fleet_number) || test(v.registration);
+}
+
+// Filter helper — apply all filters except the one named in 'except'
+// prefix='' uses tracker filter IDs; prefix='graph' uses graph filter IDs
+function elVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+
+function getFilteredExcept(except, prefix='') {
+  const P = prefix ? (prefix === 'graph' ? 'graph' : prefix) : '';
+  const opId  = P ? 'graphOperatorFilter' : 'operatorFilter';
+  const depId = P ? 'graphDepotFilter'    : 'depotFilter';
+  const stId  = P ? null                  : 'statusFilter';
+  const qId   = P ? null : 'searchInput';
+
+  const op  = except==='op'  ? '' : elVal(opId);
+  const dep = except==='dep' ? '' : elVal(depId);
+  const st  = except==='st'  ? '' : (stId ? elVal(stId) : '');
+  const q   = (except==='q' || !qId) ? '' : elVal(qId).trim().toUpperCase();
+  const uf  = except==='uf' ? '' : elVal('userFilter');
+
+  return vehicles.filter(v=>{
+    if(op && v.operator!==op) return false;
+    if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
+    if(st && v.update_status!==st) return false;
+    if(uf && (v.engineer_data&&v.engineer_data.updated_by_id)!==uf) return false;
+    if(q  && !matchesSearch(v, q)) return false;
+    return true;
+  });
+}
+
+function updateContextFilters() {
+  // Tracker filters
+  const forOp  = getFilteredExcept('op');
+  const forDep = getFilteredExcept('dep');
+  populateSelect('operatorFilter', forOp.map(v=>v.operator), '— All —');
+  populateSelect('depotFilter',    forDep.map(v=>v.depot),       '— All —', true);
+  // Status filter options are fixed (Pending/In Progress/Complete) — no dynamic population needed
+}
+
+function updateGraphContextFilters() {
+  // Context filtering for graph uses graphVehicles
+  const op  = document.getElementById('graphOperatorFilter').value;
+  const dep = document.getElementById('graphDepotFilter').value;
+  const forOp  = graphVehicles.filter(v => {
+    if (dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
+    return true;
+  });
+  const forDep = graphVehicles.filter(v => {
+    if (op && v.operator !== op) return false;
+    return true;
+  });
+  populateSelect('graphOperatorFilter', forOp.map(v=>v.operator), '— All —');
+  populateSelect('graphDepotFilter',    forDep.map(v=>v.depot),       '— All —', true);
+}
+
+// ══ GRID ══
+function renderGrid() {
+  if (vehicles.length===0) { setTrackerEmpty('No vehicles yet','Drop a fleet .xlsx file.'); return; }
+  const op=document.getElementById('operatorFilter').value, dep=document.getElementById('depotFilter').value;
+  const st=document.getElementById('statusFilter').value, q=document.getElementById('searchInput').value.trim().toUpperCase();
+  const ufEl=document.getElementById('userFilter'); const uf=ufEl?ufEl.value:'';
+  const filtered=vehicles.filter(v=>{
+    if(op&&v.operator!==op) return false;
+    if(dep){ if(dep==='__unknown__'&&v.depot) return false; if(dep!=='__unknown__'&&v.depot!==dep) return false; }
+    if(st&&v.update_status!==st) return false;
+    if(uf&&(v.engineer_data&&v.engineer_data.updated_by_id)!==uf) return false;
+    if(q&&!matchesSearch(v,q)) return false;
+    return true;
+  });
+  updateContextFilters();
+  const groups={};
+  filtered.forEach(v=>{ const g=v.account_name||'Unknown'; if(!groups[g]) groups[g]=[]; groups[g].push(v); });
+  const content=document.getElementById('trackerContent');
+  content.innerHTML='';
+  const wrap=document.createElement('div'); wrap.className='grid-wrap';
+  if(filtered.length===0) { wrap.innerHTML='<div class="empty-state"><strong>No vehicles match filters.</strong></div>'; }
+  else {
+    Object.keys(groups).sort().forEach(grp=>{
+      const sec=document.createElement('div'); sec.className='grid-section';
+      const h3=document.createElement('h3'); h3.textContent=`${grp} (${groups[grp].length})`; sec.appendChild(h3);
+      const grid=document.createElement('div'); grid.className='vehicle-grid';
+      groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; const submittedDate = v.engineer_data && v.engineer_data.submitted_date;
+        const showDate = submittedDate && (v.update_status === 'In Progress' || v.update_status === 'Complete');
+        const updatedBy = v.engineer_data && v.engineer_data.updated_by_name;
+        const cardLine2 = showDate ? (submittedDate + (updatedBy ? ' · ' + updatedBy : '')) : '&nbsp;';
+        card.innerHTML = `<span>${v.body_number}</span><span class="card-date" style="visibility:${showDate?'visible':'hidden'}">${cardLine2}</span>`;
+        card.title = v.update_status + (showDate ? ' — ' + submittedDate : ''); card.onclick=()=>{ if(activeCampaign&&activeCampaign.status==='closed'){ showAlertModal('Campaign Closed','Campaign closed'); return; } refreshAndOpenModal(v.body_number); }; grid.appendChild(card); });
+      sec.appendChild(grid); wrap.appendChild(sec);
+    });
+  }
+  content.appendChild(wrap);
+  const counts={'Pending':0,'In Progress':0,'Complete':0};
+  filtered.forEach(v=>{ if(counts[v.update_status]!==undefined) counts[v.update_status]++; });
+  document.getElementById('statPending').textContent=counts['Pending'];
+  document.getElementById('statProgress').textContent=counts['In Progress'];
+  document.getElementById('statComplete').textContent=counts['Complete'];
+  document.getElementById('statTotal').textContent=filtered.length;
+}
+
+// ══ ENTRY MODAL ══
+async function refreshAndOpenModal(bodyNumber) {
+  try {
+    const data = await sbGet(activeCampaign.fileName);
+    if (data && Array.isArray(data)) {
+      vehicles = data;
+      populateFilters();
+      renderGrid();
+    }
+  } catch(e) {
+    // Silent fail — open with cached data if refresh fails
+    console.warn('Pre-modal refresh failed:', e);
+  }
+  const idx = vehicles.findIndex(v => v.body_number === bodyNumber);
+  if (idx === -1) { showToast('Vehicle not found in latest data', 'error'); return; }
+  openEntryModal(idx);
+}
+
+function openEntryModal(idx) {
+  currentIdx=idx;
+  const v=vehicles[idx];
+  const schema=activeCampaign?activeCampaign.schema:[];
+  const fields=flatFields(schema);
+  toggleStates={};
+  fields.filter(f=>f.type==='toggle').forEach(f=>{ toggleStates[f.id]=v.engineer_data[f.id]||false; });
+  document.getElementById('modalTitle').textContent='Body '+v.body_number;
+  document.getElementById('modalMeta').textContent=[v.model,v.deck_type,v.registration||'No Reg'].filter(Boolean).join(' · ');
+  const infoFields=[['Account',v.account_name],['Operator',v.operator],['Depot',v.depot],['Fleet No.',v.fleet_number],['Chassis',v.chassis_number],['Reg Date',v.reg_date],['Production',v.production_status],['Delivery',v.delivery_date||'—']];
+  document.getElementById('vehicleInfo').innerHTML=infoFields.map(([l,val])=>`<div class="info-item"><div class="lbl">${l}</div><div class="val">${val||'—'}</div></div>`).join('');
+
+  const formBody=document.getElementById('engFormBody');
+  formBody.innerHTML='';
+
+  if (schema.length===0) {
+    formBody.innerHTML='<div style="color:var(--muted);font-size:13px;">No engineer fields defined for this campaign.</div>';
+  } else {
+    schema.forEach(item=>{
+      if (item.kind==='group') {
+        const grpDiv=document.createElement('div'); grpDiv.className='eng-group';
+        const title=document.createElement('div'); title.className='eng-group-title'; title.textContent=item.title||'Group';
+        grpDiv.appendChild(title);
+        (item.fields||[]).forEach(f=>{ grpDiv.appendChild(makeEngField(f,v.engineer_data)); });
+        formBody.appendChild(grpDiv);
+      } else {
+        formBody.appendChild(makeEngField(item,v.engineer_data));
+      }
+    });
+    // Notes always last
+    const nw=document.createElement('div'); nw.className='eng-field';
+    nw.innerHTML=`<label>Notes</label><textarea id="ef_notes" placeholder="Any additional notes…">${esc(v.engineer_data.notes||'')}</textarea>`;
+    formBody.appendChild(nw);
+  }
+
+  updateModalStatus();
+  updateModalDate(v);
+
+  // Snapshot current engineer_data to detect changes on save
+  _originalEngData = JSON.stringify(v.engineer_data || {});
+
+  // Apply read-only mode for L0 users
+  const ro = isReadOnly();
+  document.getElementById('engFormBody').querySelectorAll('input, select, textarea').forEach(el => {
+    el.disabled = ro;
+  });
+  // Also disable toggle fields
+  document.getElementById('engFormBody').querySelectorAll('.toggle-field').forEach(el => {
+    el.style.pointerEvents = ro ? 'none' : '';
+    el.style.opacity = ro ? '0.6' : '';
+  });
+  // Show/hide Save button
+  const saveBtn = document.querySelector('#entryModalOverlay .modal-footer button.primary');
+  if (saveBtn) saveBtn.style.display = ro ? 'none' : '';
+  // Change Cancel to Close for read-only
+  const cancelBtn = document.querySelector('#entryModalOverlay .modal-footer button:not(.primary)');
+  if (cancelBtn) cancelBtn.textContent = ro ? 'Close' : 'Cancel';
+  // Show read-only notice
+  let roNotice = document.getElementById('roNotice');
+  if (ro && !roNotice) {
+    roNotice = document.createElement('div');
+    roNotice.id = 'roNotice';
+    roNotice.style.cssText = 'font-size:12px;color:var(--muted);font-style:italic;';
+    roNotice.textContent = 'Read only — viewing only';
+    document.querySelector('#entryModalOverlay .modal-footer .status-wrap').appendChild(roNotice);
+  } else if (!ro && roNotice) {
+    roNotice.remove();
+  }
+
+  document.getElementById('entryModalOverlay').classList.add('open');
+  fields.filter(f=>f.type!=='toggle').forEach(f=>{ const el=document.getElementById('ef_'+f.id); if(el) el.addEventListener('input',updateModalStatus); });
+}
+
+function makeEngField(f, ed) {
+  const wrap=document.createElement('div'); wrap.className='eng-field';
+  const val=ed[f.id];
+  if (f.type==='text') {
+    wrap.innerHTML=`<label>${esc(f.label)}</label><input type="text" id="ef_${f.id}" value="${esc(val||'')}" placeholder="${esc(f.label)}…">`;
+  } else if (f.type==='toggle') {
+    const on=toggleStates[f.id];
+    wrap.innerHTML=`<div class="toggle-field ${on?'on':''}" id="tf_${f.id}" onclick="toggleEngField('${f.id}')"><span class="tl">${esc(f.label)}</span><span class="ts" id="ts_${f.id}">${on?'Y':'N'}</span></div>`;
+  } else if (f.type==='dropdown') {
+    const opts=(f.options||[]).map(o=>`<option value="${esc(o)}" ${val===o?'selected':''}>${esc(o)}</option>`).join('');
+    wrap.innerHTML=`<label>${esc(f.label)}</label><select id="ef_${f.id}"><option value="">— Select —</option>${opts}</select>`;
+  }
+  return wrap;
+}
+
+function closeEntryModal() { document.getElementById('entryModalOverlay').classList.remove('open'); currentIdx=null; }
+function handleEntryOverlayClick(e) { if(e.target===document.getElementById('entryModalOverlay')) closeEntryModal(); }
+
+function toggleEngField(fid) {
+  toggleStates[fid]=!toggleStates[fid];
+  const on=toggleStates[fid];
+  const tf=document.getElementById('tf_'+fid), ts=document.getElementById('ts_'+fid);
+  if(tf) tf.classList.toggle('on',on);
+  if(ts) ts.textContent=on?'Y':'N';
+  updateModalStatus();
+}
+
+function computeStatus() {
+  if(!activeCampaign) return 'Pending';
+  const fields=flatFields(activeCampaign.schema||[]);
+  if(fields.length===0) return 'Pending';
+  let allDone=true, anyTouched=false;
+  fields.forEach(f=>{
+    if(f.type==='toggle') { if(!toggleStates[f.id]) allDone=false; else anyTouched=true; }
+    else { const el=document.getElementById('ef_'+f.id); const v=el?el.value.trim():''; if(!v) allDone=false; else anyTouched=true; }
+  });
+  if(allDone) return 'Complete';
+  if(anyTouched) return 'In Progress';
+  return 'Pending';
+}
+
+function updateModalStatus() {
+  const s=computeStatus(); const el=document.getElementById('modalStatus');
+  el.className='status-badge '+s.replace(' ','-'); el.textContent=s;
+}
+
+function updateModalDate(v) {
+  const dateEl = document.getElementById('modalDate');
+  if (!dateEl) return;
+  const ed = v && v.engineer_data;
+  const sd = ed && ed.submitted_date;
+  const showDate = sd && (v.update_status === 'In Progress' || v.update_status === 'Complete');
+  if (showDate) {
+    const who = ed.updated_by_name ? ' · ' + ed.updated_by_name : '';
+    dateEl.textContent = sd + who;
+  } else {
+    dateEl.textContent = '';
+  }
+}
+
+async function saveEntry() {
+  if(currentIdx===null||!activeCampaign) return;
+  const v=vehicles[currentIdx];
+  const today=new Date();
+  const ds=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  // Preserve existing user data by default (will be overwritten only if changed)
+  const prevEd = v.engineer_data || {};
+  const ed = {
+    submitted_date: ds,
+    notes: null,
+    updated_by_id:   prevEd.updated_by_id   || null,
+    updated_by_name: prevEd.updated_by_name || null,
+  };
+  flatFields(activeCampaign.schema||[]).forEach(f=>{
+    if(f.type==='toggle') ed[f.id]=toggleStates[f.id]||false;
+    else { const el=document.getElementById('ef_'+f.id); ed[f.id]=el?(el.value.trim()||null):null; }
+  });
+  const ne=document.getElementById('ef_notes'); if(ne) ed.notes=ne.value.trim()||null;
+  v.engineer_data=ed;
+  v.update_status=computeStatus();
+
+  // Check if data actually changed compared to when modal was opened
+  const newDataStr = JSON.stringify(ed);
+  const dataChanged = _originalEngData !== null && newDataStr !== _originalEngData;
+
+  if (v.update_status === 'Pending') {
+    // Reset user data if back to pending
+    ed.updated_by_id   = null;
+    ed.updated_by_name = null;
+  } else if (dataChanged && currentUser) {
+    // Only update user if data was actually changed
+    ed.updated_by_id   = currentUser.id;
+    ed.updated_by_name = currentUser.name;
+  }
+  _originalEngData = null;
+  closeEntryModal(); renderGrid();
+  showToast('Saving…','info');
+  await syncCampaignData(true);
+  showToast(`Saved — ${v.body_number} → ${v.update_status}`,'success');
+}
+
+// ══ HELPERS ══
+function showAlertModal(title, body) {
+  document.getElementById('alertModalTitle').textContent = title;
+  document.getElementById('alertModalBody').textContent  = body;
+  document.getElementById('alertModalOverlay').classList.add('open');
+}
+function closeAlertModal() {
+  document.getElementById('alertModalOverlay').classList.remove('open');
+}
+
+function showConfirmModal(title, body, onConfirm) {
+  document.getElementById('confirmModalTitle').textContent = title;
+  document.getElementById('confirmModalBody').textContent  = body;
+  const btn = document.getElementById('confirmModalOkBtn');
+  btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+  document.getElementById('confirmModalOverlay').classList.add('open');
+}
+function closeConfirmModal() {
+  document.getElementById('confirmModalOverlay').classList.remove('open');
+}
+
+function resetStats() {
+  ['statPending','statProgress','statComplete','statTotal'].forEach(id => { document.getElementById(id).textContent = '0'; });
+}
+
+function clearAllFilters() {
+  ['operatorFilter','depotFilter','statusFilter','userFilter','searchInput',
+   'graphOperatorFilter','graphDepotFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function resetGraphStats() {
+  ['graphStatPending','graphStatProgress','graphStatComplete','graphStatTotal'].forEach(id => { document.getElementById(id).textContent = '0'; });
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  const pc = document.getElementById('progressChart'); if (pc) pc.style.display = 'none';
+  const ge = document.getElementById('graphEmpty');    if (ge) ge.style.display = 'none';
+  const gn = document.getElementById('graphNoCampaign'); if (gn) gn.style.display = 'inline';
+}
+
+function setTrackerLoading(msg) { document.getElementById('trackerContent').innerHTML=`<div class="loading-screen"><div class="spinner"></div><span>${msg}</span></div>`; }
+function setTrackerEmpty(t,m)   { document.getElementById('trackerContent').innerHTML=`<div class="empty-state"><strong>${t}</strong>${m}</div>`; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let toastTimer;
+function showToast(msg,type='info') {
+  const el=document.getElementById('toast'); el.textContent=msg; el.className=`toast ${type} show`;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ══ GRAPH ══
+let chartInstance = null;
+
+// Choose the smallest step from the allowed set such that ceil(maxVal / step) <= 20.
+// Returns { step, yMax } where yMax = step * ceil(maxVal / step).
+function yAxisConfig(maxVal) {
+  const allowed = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  for (const step of allowed) {
+    const ticks = Math.ceil(maxVal / step);
+    if (ticks <= 20) return { step, yMax: step * ticks };
+  }
+  return { step: 500, yMax: Math.ceil(maxVal / 500) * 500 };
+}
+
+function renderGraph() {
+  const noMsg   = document.getElementById('graphNoCampaign');
+  const emptyEl = document.getElementById('graphEmpty');
+  const canvas  = document.getElementById('progressChart');
+
+  if (!graphActiveCampaign || graphVehicles.length === 0) {
+    noMsg.style.display   = graphActiveCampaign ? 'none' : 'inline';
+    emptyEl.style.display = graphActiveCampaign ? 'block' : 'none';
+    canvas.style.display  = 'none';
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
+
+  // Apply graph filters
+  const opFilter  = document.getElementById('graphOperatorFilter').value;
+  const depFilter = document.getElementById('graphDepotFilter').value;
+
+  const filtered = graphVehicles.filter(v => {
+    if (opFilter && v.operator !== opFilter) return false;
+    if (depFilter) {
+      if (depFilter === '__unknown__' && v.depot) return false;
+      if (depFilter !== '__unknown__' && v.depot !== depFilter) return false;
+    }
+    return true;
+  });
+  updateGraphContextFilters();
+
+  noMsg.style.display   = 'none';
+  emptyEl.style.display = 'none';
+  canvas.style.display  = 'block';
+
+  const total = filtered.length;
+
+  // Update graph stats bar
+  const gCounts = { 'Pending':0, 'In Progress':0, 'Complete':0 };
+  filtered.forEach(v => { if (gCounts[v.update_status] !== undefined) gCounts[v.update_status]++; });
+  document.getElementById('graphStatPending').textContent  = gCounts['Pending'];
+  document.getElementById('graphStatProgress').textContent = gCounts['In Progress'];
+  document.getElementById('graphStatComplete').textContent = gCounts['Complete'];
+  document.getElementById('graphStatTotal').textContent    = filtered.length;
+
+  // Collect all unique submitted dates; add today so the current state is always plotted
+  const today = new Date().toISOString().slice(0,10);
+  const dateSet = new Set([today]);
+  filtered.forEach(v => {
+    if (v.engineer_data && v.engineer_data.submitted_date) dateSet.add(v.engineer_data.submitted_date);
+  });
+  const allDates = [...dateSet].sort();
+
+  // If the only date is today and no vehicle has any submitted_date, show a single-point snapshot
+  const labels      = [];
+  const pendingPts  = [];
+  const progressPts = [];
+  const completePts = [];
+
+  allDates.forEach(date => {
+    labels.push(date);
+    let inProg = 0, comp = 0;
+    filtered.forEach(v => {
+      const sd = v.engineer_data && v.engineer_data.submitted_date;
+      // A vehicle counts toward inProg/comp on the date it was submitted (or any later date)
+      if (sd && sd <= date) {
+        if (v.update_status === 'In Progress') inProg++;
+        else if (v.update_status === 'Complete') comp++;
+      }
+    });
+    completePts.push(comp);
+    progressPts.push(inProg);
+    pendingPts.push(total - inProg - comp);
+  });
+
+  // Find the highest individual series value across all data points
+  const maxSeriesVal = Math.max(
+    ...pendingPts,
+    ...progressPts.map((v, i) => v + completePts[i]),
+    ...completePts,
+    1
+  );
+  const { step: yStep, yMax } = yAxisConfig(maxSeriesVal);
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  const ctx = canvas.getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          // Pending: unfilled line
+          label: 'Pending',
+          data: pendingPts,
+          fill: false,
+          borderColor: '#f85149',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#f85149',
+          tension: 0.3,
+        },
+        {
+          // Complete: green line at completePts, green fill from zero
+          label: 'Complete',
+          data: completePts,
+          fill: 'origin',
+          backgroundColor: 'rgba(63,185,80,0.3)',
+          borderColor: '#3fb950',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#3fb950',
+          tension: 0.3,
+        },
+        {
+          // In Progress + Complete: yellow line drawn at inProg+comp height,
+          // yellow fill between this line and the Complete line below it
+          label: 'In Progress',
+          data: progressPts.map((v, i) => v + completePts[i]),
+          fill: '-1',
+          backgroundColor: 'rgba(210,153,34,0.3)',
+          borderColor: '#d29922',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d29922',
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { color: '#e6edf3', font: { family: 'Inter', size: 12 }, boxWidth: 14 },
+        },
+        tooltip: {
+          backgroundColor: '#161b22',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#e6edf3',
+          bodyColor: '#7d8590',
+          callbacks: {
+            label: ctx => {
+              const i = ctx.dataIndex;
+              if (ctx.dataset.label === 'In Progress') {
+                return ` In Progress: ${progressPts[i]}`;
+              }
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y}`;
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#7d8590', font: { family: 'Share Tech Mono', size: 11 } },
+          grid:  { color: 'rgba(48,54,61,0.6)' },
+        },
+        y: {
+          beginAtZero: true,
+          max: yMax,
+          ticks: { color: '#7d8590', font: { family: 'Inter', size: 11 }, stepSize: yStep },
+          grid:  { color: 'rgba(48,54,61,0.6)' },
+        },
+      },
+    },
+  });
+}
+
+// ══ AUTH STATE ══
+const USERS_FILE = 'Users.json';
+let userList_    = []; // [{id,name,pin,level}]
+let currentUser  = null; // {id,name,pin,level}
+let pinBuffer    = '';
+
+// ══ PIN SCREEN ══
+function pinKey(d) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(tryPin, 120);
+}
+function pinDel()   { pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); document.getElementById('pinError').textContent=''; }
+function pinClear() { pinBuffer = ''; updatePinDots(); document.getElementById('pinError').textContent=''; }
+
+function updatePinDots() {
+  for (let i=0;i<4;i++) {
+    document.getElementById('pd'+i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+async function tryPin() {
+  // Load users if not yet loaded
+  if (userList_.length === 0) {
+    try {
+      const data = await sbGet(USERS_FILE);
+      userList_ = data && Array.isArray(data) ? data : [];
+    } catch(e) { userList_ = []; }
+  }
+  const match = userList_.find(u => u.pin === pinBuffer);
+  if (match) {
+    currentUser = match;
+    document.getElementById('pinScreen').style.display = 'none';
+    document.getElementById('userBadge').style.display = 'flex';
+    document.getElementById('userBadgeName').textContent = match.name + ' (L' + match.level + (match.level===0?' — Read Only':'') + ')';
+    applyAccessLevel();
+    await init();
+  } else {
+    document.getElementById('pinError').textContent = 'Incorrect PIN — try again';
+    pinBuffer = '';
+    updatePinDots();
+  }
+}
+
+function lockApp() {
+  currentUser = null;
+  pinBuffer   = '';
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinScreen').style.display = 'flex';
+  document.getElementById('userBadge').style.display = 'none';
+  // Reset app state
+  vehicles = []; graphVehicles = [];
+  activeCampaign = null; graphActiveCampaign = null;
+  campaignList = [];
+  resetStats(); resetGraphStats();
+  document.getElementById('trackerContent').innerHTML = '';
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+}
+
+function applyAccessLevel() {
+  const isL2 = currentUser && currentUser.level === 2;
+  // Config tab visible to L2 only
+  document.getElementById('tab-config').style.display = isL2 ? '' : 'none';
+  if (!isL2 && document.getElementById('pane-config').style.display !== 'none') switchTab('tracker');
+  // User filter visible to L2 only
+  const ufi = document.getElementById('userFilterItem');
+  if (ufi) ufi.style.display = isL2 ? '' : 'none';
+}
+
+function isReadOnly() {
+  return currentUser && currentUser.level === 0;
+}
+
+// ══ USER MANAGEMENT ══
+async function loadUserList() {
+  try {
+    const data = await sbGet(USERS_FILE);
+    userList_ = data && Array.isArray(data) ? data : [];
+  } catch(e) { userList_ = []; }
+}
+
+async function saveUsers() {
+  // Read from UI
+  const rows = document.querySelectorAll('#userList .user-row');
+  const users = [];
+  rows.forEach(row => {
+    const name  = row.querySelector('.u-name').value.trim();
+    const pin   = row.querySelector('.u-pin').value.trim();
+    const level = parseInt(row.querySelector('.u-level').value);
+    const id    = row.dataset.uid || 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    if (name && pin) users.push({ id, name, pin, level });
+  });
+  try {
+    await sbPut(USERS_FILE, users);
+    userList_ = users;
+    renderUserAssignPickers();
+    showToast('Users saved', 'success');
+  } catch(e) { showToast('Save failed: ' + e.message, 'error'); }
+}
+
+function renderUserManagement() {
+  const el = document.getElementById('userList');
+  el.innerHTML = '';
+  userList_.forEach(u => addUserRow(u));
+}
+
+function addUserRow(u) {
+  const el = document.getElementById('userList');
+  const row = document.createElement('div');
+  row.className = 'user-row';
+  row.dataset.uid = u ? u.id : '';
+  row.innerHTML = `
+    <input type="text" class="u-name" placeholder="Name" value="${esc(u ? u.name : '')}">
+    <input type="text" class="u-pin" placeholder="PIN" maxlength="4" value="${esc(u ? u.pin : '')}" style="font-family:'Share Tech Mono',monospace;letter-spacing:2px;">
+    <select class="u-level">
+      <option value="0" ${u&&u.level===0?'selected':''}>L0</option>
+      <option value="1" ${!u||u.level===1?'selected':''}>L1</option>
+      <option value="2" ${u&&u.level===2?'selected':''}>L2</option>
+    </select>
+    <button class="remove-btn" onclick="this.closest('.user-row').remove()" title="Remove">✕</button>
+  `;
+  el.appendChild(row);
+}
+
+// ══ USER ASSIGNMENT PICKERS ══
+function renderUserAssignPickers() {
+  renderAssignPicker('newCampUserAssign', []);
+  // Edit modal picker will be refreshed when edit opens
+}
+
+function renderAssignPicker(containerId, assignedIds) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  const assignable = userList_.filter(u => u.level === 0 || u.level === 1);
+  if (assignable.length === 0) {
+    el.innerHTML = '<span style="font-size:12px;color:var(--muted);">No Level 0 or Level 1 users defined yet.</span>';
+    return;
+  }
+
+  function makeChip(u) {
+    const checked = assignedIds.includes(u.id);
+    const chip = document.createElement('label');
+    chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:16px;cursor:pointer;font-size:12px;user-select:none;transition:border-color .15s;';
+    chip.innerHTML = `<input type="checkbox" value="${u.id}" ${checked?'checked':''} style="accent-color:var(--accent);"> ${esc(u.name)}`;
+    chip.querySelector('input').addEventListener('change', () => {
+      chip.style.borderColor = chip.querySelector('input').checked ? 'var(--accent)' : 'var(--border)';
+    });
+    if (checked) chip.style.borderColor = 'var(--accent)';
+    return chip;
+  }
+
+  function makeGroupHeading(label) {
+    const h = document.createElement('div');
+    h.style.cssText = 'width:100%;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:6px;margin-bottom:2px;';
+    h.textContent = label;
+    return h;
+  }
+
+  // Group by level
+  const l0 = assignable.filter(u => u.level === 0);
+  const l1 = assignable.filter(u => u.level === 1);
+
+  // Wrap in a flex container that wraps chips
+  el.style.flexDirection = 'column';
+
+  if (l0.length > 0) {
+    el.appendChild(makeGroupHeading('Level 0 — Read Only'));
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+    l0.forEach(u => row.appendChild(makeChip(u)));
+    el.appendChild(row);
+  }
+  if (l1.length > 0) {
+    el.appendChild(makeGroupHeading('Level 1 — Read & Write'));
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+    l1.forEach(u => row.appendChild(makeChip(u)));
+    el.appendChild(row);
+  }
+}
+
+function getAssignedIds(containerId) {
+  return [...document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)].map(cb => cb.value);
+}
+
+// ══ FILTER CAMPAIGNS BY USER ══
+function visibleCampaigns() {
+  if (!currentUser) return [];
+  if (currentUser.level === 2) return campaignList;
+  return campaignList.filter(c => (c.assignedUsers || []).includes(currentUser.id));
+}
+
+// Don't auto-init — wait for PIN
+</script>
+</body>
+</html>
