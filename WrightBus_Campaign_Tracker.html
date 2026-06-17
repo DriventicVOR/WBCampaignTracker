@@ -314,7 +314,7 @@ input[type="text"]::placeholder,textarea::placeholder{color:var(--muted);}
 
 <header>
   <div class="logo">WRIGHTBUS <span>/ Campaign Tracker</span></div>
-  <div class="version-badge">v3.2.7</div>
+  <div class="version-badge">v3.2.8</div>
   <div class="spacer"></div>
   <div class="user-badge" id="userBadge" style="display:none;">
     <strong id="userBadgeName"></strong>
@@ -1640,8 +1640,10 @@ function renderGrid() {
       const grid=document.createElement('div'); grid.className='vehicle-grid';
       groups[grp].forEach(v=>{ const idx=vehicles.indexOf(v); const card=document.createElement('div'); card.className=`vehicle-card status-${v.update_status.replace(' ','-')}`; const submittedDate = v.engineer_data && v.engineer_data.submitted_date;
         const showDate = submittedDate && (v.update_status === 'In Progress' || v.update_status === 'Complete');
-        const updatedBy = v.engineer_data && v.engineer_data.updated_by_name;
-        const cardLine2 = showDate ? (submittedDate + (updatedBy ? ' · ' + updatedBy : '')) : '&nbsp;';
+        const updatedById = v.engineer_data && v.engineer_data.updated_by_id;
+        const updatedByNm = v.engineer_data && v.engineer_data.updated_by_name;
+        const cardLabel   = updatedById ? cardLabelById(updatedById, updatedByNm) : '';
+        const cardLine2   = showDate ? (submittedDate + (cardLabel ? ' · ' + cardLabel : '')) : '&nbsp;';
         card.innerHTML = `<span>${v.body_number}</span><span class="card-date" style="visibility:${showDate?'visible':'hidden'}">${cardLine2}</span>`;
         card.title = v.update_status + (showDate ? ' — ' + submittedDate : ''); card.onclick=()=>{ if(activeCampaign&&activeCampaign.status==='closed'){ showAlertModal('Campaign Closed','Campaign closed'); return; } refreshAndOpenModal(v.body_number); }; grid.appendChild(card); });
       sec.appendChild(grid); wrap.appendChild(sec);
@@ -2036,6 +2038,13 @@ function displayName(u) {
 function displayNameById(userId) {
   const u = userList_.find(x => x.id === userId);
   return u ? displayName(u) : userId || '';
+}
+
+// For vehicle cards: group name if grouped, else the person's name
+function cardLabelById(userId, fallbackName) {
+  const u = userList_.find(x => x.id === userId);
+  if (u) return u.group ? u.group : u.name;
+  return fallbackName || '';
 }
 const _userColourMap = {};  // {userId: colour} — assigned once per session, never changes
 
